@@ -17,3 +17,9 @@ features = [
   "v4",
   "fast-rng",
 ]
+
+[dependencies.clap]
+version = "^4.3"
+features = [
+  "derive",
+]

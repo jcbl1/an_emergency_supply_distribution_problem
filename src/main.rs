@@ -1,16 +1,25 @@
 use std::{
-    eprintln, fs, println, process,
+    eprintln, fs,
+    io::{stdout, Write},
+    println,
+    process::{self, ExitCode},
     sync::atomic::{AtomicIsize, AtomicUsize},
 };
 
 use crate::calcs::*;
 use genevo::{
-    operator::prelude::RandomValueMutator, population::ValueEncodedGenomeBuilder, prelude::*,
-    recombination::discrete::MultiPointCrossBreeder, reinsertion::elitist::ElitistReinserter,
-    selection::truncation::MaximizeSelector, types::fmt::Display,
+    operator::prelude::RandomValueMutator,
+    population::{self, ValueEncodedGenomeBuilder},
+    prelude::*,
+    recombination::discrete::MultiPointCrossBreeder,
+    reinsertion::elitist::ElitistReinserter,
+    selection::truncation::MaximizeSelector,
+    types::fmt::Display,
 };
 
 use xlsxwriter::prelude::*;
+
+use clap::{Arg, ArgAction, ArgMatches, Command, Parser};
 
 mod calcs;
 mod example;
@@ -251,19 +260,60 @@ impl FitnessFunction<Genome, usize> for FitnessCalc {
     }
 }
 
+fn parse_matches() -> ArgMatches {
+    Command::new(env!("CARGO_CRATE_NAME"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about("毕业论文模型遗传算法实现.")
+        .arg(
+            Arg::new("output")
+                .short('o')
+                .long("output")
+                .help("设置存放xlsx文件的文件夹")
+                .default_value("./output"),
+        )
+        .arg(
+            Arg::new("generation_limit")
+                .short('g')
+                .long("generation-limit")
+                .help("最大代数")
+                .default_value("200"),
+        )
+        .arg(
+            Arg::new("population_size")
+                .short('p')
+                .long("population-size")
+                .help("种群规模")
+                .default_value("200"),
+        )
+        .arg(
+            Arg::new("debug")
+                .long("debug")
+                .help("Debug mode")
+                .action(ArgAction::SetTrue),
+        )
+        .get_matches()
+}
+
 fn main() {
+    let matches = parse_matches();
+    let debug_mode = matches.get_flag("debug");
+    if debug_mode {
+        dbg!("Processing in debug mode.");
+    }
+    let output = match matches.get_one::<String>("output") {
+        Some(output) => output,
+        None => "./output",
+    };
     let uuid_ = uuid::Uuid::new_v4();
-    println!("uuid: {}", uuid_);
-    fs::create_dir("./output").unwrap_or_else(|e| match e.kind() {
+    fs::create_dir(output).unwrap_or_else(|e| match e.kind() {
         std::io::ErrorKind::AlreadyExists => (),
         other => panic!("{other}"),
     });
-    let workbook = Workbook::new(&format!(
-        "{}/output/{}.xlsx",
-        env!("CARGO_MANIFEST_DIR"),
-        uuid_
-    ))
-    .expect("Error creating file");
+    let workbook =
+        Workbook::new(&format!("{}/{}.xlsx", output, uuid_)).expect("Error creating file");
+    println!("Created {}.xlsx in {}", uuid_, output);
+    println!("Setting up the xlsx file...");
     let mut format_label = Format::new();
     format_label
         .set_bold()
@@ -468,8 +518,28 @@ fn main() {
         }
     };
 
-    let params = Parameter::default();
-
+    let mut params = Parameter::default();
+    if let Some(generation_limit) = matches.get_one::<String>("generation_limit") {
+        let generation_limit = generation_limit
+            .parse::<u64>()
+            .expect("Error parsing generation_limit");
+        params = Parameter {
+            generation_limit,
+            ..params
+        };
+    }
+    if let Some(population_size) = matches.get_one::<String>("population_size") {
+        let population_size = population_size
+            .parse::<usize>()
+            .expect("Error parsing population_size");
+        params = Parameter {
+            population_size,
+            ..params
+        };
+    }
+    if debug_mode {
+        dbg!(&params);
+    }
     let initial_population: Population<Genome> = build_population()
         .with_genome_builder(ValueEncodedGenomeBuilder::new(TOTAL_LEN, 0, 0b1111_1111))
         .of_size(params.population_size)
@@ -502,15 +572,15 @@ fn main() {
     ))
     .build();
 
-    println!("开始进化...");
+    println!("The evolution has started.");
 
     loop {
         match sim.step() {
             Ok(SimResult::Intermediate(step)) => {
                 let evaluated_population = step.result.evaluated_population;
                 let best_solution = step.result.best_solution;
-                println!(
-                    "generation: {}, average_fitness: {}, \
+                print!(
+                    "\rgeneration: {}, average_fitness: {}, \
                     best_fitness: {}, duration: {}, processing_time: {}",
                     step.iteration,
                     evaluated_population.average_fitness(),
@@ -518,6 +588,7 @@ fn main() {
                     step.duration.fmt(),
                     step.processing_time.fmt(),
                 );
+                stdout().flush().unwrap();
                 write_gen(
                     &mut fitness_sheet,
                     step.iteration,
@@ -531,7 +602,7 @@ fn main() {
             }
             Ok(SimResult::Final(step, processing_time, duration, stop_reason)) => {
                 let best_solution = step.result.best_solution;
-                println!("{}", stop_reason);
+                println!("\n{}", stop_reason);
                 println!(
                     "Final result after {}: generation: {}, \
                     best solution with fitness {} found in generation {}, processing_time: {}",
@@ -541,10 +612,10 @@ fn main() {
                     best_solution.generation,
                     processing_time.fmt(),
                 );
-                println!(
-                    "best solution: \n{}",
-                    best_solution.solution.genome.as_solution().fmt()
-                );
+                // println!(
+                //     "best solution: \n{}",
+                //     best_solution.solution.genome.as_solution().fmt()
+                // );
 
                 write_final(
                     &mut final_result_sheet,
@@ -573,5 +644,10 @@ fn main() {
     if let Err(e) = workbook.close() {
         eprintln!("{e}");
         process::exit(1);
+    } else {
+        println!(
+            "Results saved in {}/{}.xlsx. Don't forget to check them out!",
+            output, uuid_
+        );
     }
 }
