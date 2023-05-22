@@ -1,23 +1,28 @@
-use std::{dbg, println, sync::atomic::{AtomicUsize, AtomicIsize}};
+use std::{
+    eprintln, fs, println, process,
+    sync::atomic::{AtomicIsize, AtomicUsize},
+};
 
+use crate::calcs::*;
 use genevo::{
     operator::prelude::RandomValueMutator, population::ValueEncodedGenomeBuilder, prelude::*,
     recombination::discrete::MultiPointCrossBreeder, reinsertion::elitist::ElitistReinserter,
     selection::truncation::MaximizeSelector, types::fmt::Display,
 };
-use crate::calcs::*;
 
+use xlsxwriter::prelude::*;
+
+mod calcs;
 mod example;
 #[cfg(test)]
 mod tests;
-mod calcs;
 
-const A_STEP:usize = 100;
+const A_STEP: usize = 100;
 const NUM_CITIES: usize = 9;
 const NUM_VEHICLES: usize = 4;
 const HIGHEST_FITNESS: usize = 10_000;
 const TOTAL_LEN: usize = 2 * NUM_VEHICLES * NUM_CITIES + 2 * NUM_VEHICLES * NUM_CITIES * NUM_CITIES;
-const T:[[f64;NUM_CITIES];NUM_CITIES]=[
+const T: [[f64; NUM_CITIES]; NUM_CITIES] = [
     [0., 2.72, 0.70, 3.78, 1.27, 3.27, 1.13, 1.3, 1.93],
     [2.72, 0., 3.27, 5.3, 3.25, 4.93, 3.08, 1.32, 3.42],
     [0.7, 3.27, 0., 3.78, 1.87, 3.5, 1.63, 1.57, 1.68],
@@ -28,17 +33,19 @@ const T:[[f64;NUM_CITIES];NUM_CITIES]=[
     [1.3, 1.32, 1.57, 4.25, 2.03, 4.77, 1.8, 0., 2.17],
     [1.93, 3.42, 1.68, 2.32, 1.15, 3.08, 0.82, 2.17, 0.],
 ];
-const DEMANDS:[usize;NUM_CITIES]=[37209, 34583, 33075, 32145, 26916, 15453, 13476, 10560, 10006];
-const ALPHA:[f64;NUM_CITIES]=[1.;NUM_CITIES];
-const BETA:[f64;NUM_CITIES]=[1.;NUM_CITIES];
-static MAX_F1:AtomicIsize=AtomicIsize::new((f64::NEG_INFINITY)as isize);
-// static MAX_F1:AtomicIsize=AtomicIsize::new(0);
-static MIN_F1:AtomicIsize=AtomicIsize::new((f64::INFINITY)as isize);
-// static MIN_F1:AtomicIsize=AtomicIsize::new(10000);
-static MAX_F2:AtomicIsize=AtomicIsize::new((f64::NEG_INFINITY)as isize);
-// static MAX_F2:AtomicIsize=AtomicIsize::new(-1000000);
-static MIN_F2:AtomicIsize=AtomicIsize::new((f64::INFINITY)as isize);
-// static MIN_F2:AtomicIsize=AtomicIsize::new(0);
+const DEMANDS: [usize; NUM_CITIES] = [
+    37209, 34583, 33075, 32145, 26916, 15453, 13476, 10560, 10006,
+];
+const ALPHA: [f64; NUM_CITIES] = [1.; NUM_CITIES];
+const BETA: [f64; NUM_CITIES] = [1.; NUM_CITIES];
+// static MAX_F1: AtomicIsize = AtomicIsize::new((f64::NEG_INFINITY) as isize);
+static MAX_F1: AtomicIsize = AtomicIsize::new(800isize);
+// static MIN_F1: AtomicIsize = AtomicIsize::new((f64::INFINITY) as isize);
+static MIN_F1: AtomicIsize = AtomicIsize::new(400isize);
+// static MAX_F2: AtomicIsize = AtomicIsize::new((f64::NEG_INFINITY) as isize);
+static MAX_F2: AtomicIsize = AtomicIsize::new(7_000_000isize);
+// static MIN_F2: AtomicIsize = AtomicIsize::new((f64::INFINITY) as isize);
+static MIN_F2: AtomicIsize = AtomicIsize::new(5_000_000isize);
 
 #[derive(Debug)]
 struct Parameter {
@@ -55,7 +62,7 @@ impl Default for Parameter {
     fn default() -> Self {
         Parameter {
             population_size: 200,
-            generation_limit: 2000,
+            generation_limit: 20000,
             num_individuals_per_parents: 2,
             selection_ratio: 0.7,
             num_crossover_points: 300,
@@ -79,59 +86,64 @@ impl Display for Solution {
         result.push_str("###########################################\n");
         result.push_str("##################初救阶段#################\n");
         result.push_str("###########################################\n");
-        for k in 0..NUM_VEHICLES{
-            result.push_str(&format!("车辆{}：\n",k+1));
+        for k in 0..NUM_VEHICLES {
+            result.push_str(&format!("车辆{}：\n", k + 1));
 
             result.push_str("  配送：\n");
-            let mut distribution:Vec<usize>=Vec::new();
+            let mut distribution: Vec<usize> = Vec::new();
             let mut set_off = false;
-            for i in 0..NUM_CITIES{
-                for j in 0..NUM_CITIES{
-                    if self.yijko[k][i][j]{
+            for i in 0..NUM_CITIES {
+                for j in 0..NUM_CITIES {
+                    if self.yijko[k][i][j] {
                         // println!("[{}][{}][{}],{}",k,i,j,set_off);
-                        if !set_off{
+                        if !set_off {
                             distribution.push(self.xiko[k][i]);
-                            set_off=true;
+                            set_off = true;
                         }
                         distribution.push(self.xiko[k][j]);
                         break;
                     }
                 }
             }
-            result.push_str(&format!("{:?}\n",distribution));
+            result.push_str(&format!("{:?}\n", distribution));
 
             result.push_str("  路径：\n");
-            result.push_str(&format!("{:?}\n",self.get_route_of_k_in_stage_u(k,&Stage::O)));
+            result.push_str(&format!(
+                "{:?}\n",
+                self.get_route_of_k_in_stage_u(k, &Stage::O)
+            ));
         }
         result.push('\n');
         result.push_str("###########################################\n");
         result.push_str("##################补救阶段#################\n");
         result.push_str("###########################################\n");
-        for k in 0..NUM_VEHICLES{
-            result.push_str(&format!("车辆{}：\n",k+1));
+        for k in 0..NUM_VEHICLES {
+            result.push_str(&format!("车辆{}：\n", k + 1));
 
             result.push_str("  配送：\n");
-            let mut distribution:Vec<usize>=Vec::new();
+            let mut distribution: Vec<usize> = Vec::new();
             let mut set_off = false;
-            for i in 0..NUM_CITIES{
-                for j in 0..NUM_CITIES{
-                    if self.yijkr[k][i][j]{
+            for i in 0..NUM_CITIES {
+                for j in 0..NUM_CITIES {
+                    if self.yijkr[k][i][j] {
                         // println!("[{}][{}][{}],{}",k,i,j,set_off);
-                        if !set_off{
+                        if !set_off {
                             distribution.push(self.xikr[k][i]);
-                            set_off=true;
+                            set_off = true;
                         }
                         distribution.push(self.xikr[k][j]);
                         break;
                     }
                 }
             }
-            result.push_str(&format!("{:?}\n",distribution));
+            result.push_str(&format!("{:?}\n", distribution));
 
             result.push_str("  路径：\n");
-            result.push_str(&format!("{:?}\n",self.get_route_of_k_in_stage_u(k,&Stage::R)));
+            result.push_str(&format!(
+                "{:?}\n",
+                self.get_route_of_k_in_stage_u(k, &Stage::R)
+            ));
         }
-
 
         result
     }
@@ -218,11 +230,11 @@ impl FitnessFunction<Genome, usize> for FitnessCalc {
     fn fitness_of(&self, genome: &Genome) -> usize {
         let mut fitness: usize = HIGHEST_FITNESS;
         let solution = genome.as_solution();
-        let uniformalized_f=solution.uniformalized_f();
+        let uniformalized_f = solution.uniformalized_f();
         // dbg!(&uniformalized_f);
-        let subtraction = uniformalized_f*(HIGHEST_FITNESS as f64);
+        let subtraction = uniformalized_f * (HIGHEST_FITNESS as f64);
         // dbg!(&subtraction);
-        fitness-=subtraction as usize;
+        fitness -= subtraction as usize;
         fitness
     }
 
@@ -239,9 +251,222 @@ impl FitnessFunction<Genome, usize> for FitnessCalc {
     }
 }
 
-
 fn main() {
+    let uuid_ = uuid::Uuid::new_v4();
+    println!("uuid: {}", uuid_);
+    fs::create_dir("./output").unwrap_or_else(|e| match e.kind() {
+        std::io::ErrorKind::AlreadyExists => (),
+        other => panic!("{other}"),
+    });
+    let workbook = Workbook::new(&format!(
+        "{}/output/{}.xlsx",
+        env!("CARGO_MANIFEST_DIR"),
+        uuid_
+    ))
+    .expect("Error creating file");
+    let mut format_label = Format::new();
+    format_label
+        .set_bold()
+        .set_align(FormatAlignment::Center)
+        .set_vertical_align(FormatVerticalAlignment::VerticalCenter);
+    let mut fitness_sheet = workbook
+        .add_worksheet(Some("Fitness"))
+        .expect("Error creating sheet");
+    fitness_sheet
+        .write_string(0, 0, "gen", Some(&format_label))
+        .expect("Error write_string");
+    fitness_sheet
+        .write_string(0, 1, "highest_fitness", Some(&format_label))
+        .expect("Error write_string");
+    fitness_sheet
+        .write_string(0, 2, "average_fitness", Some(&format_label))
+        .expect("Error write_string");
+    fitness_sheet
+        .write_string(0, 3, "lowest_fitness", Some(&format_label))
+        .expect("Error write_string");
+    fitness_sheet
+        .write_string(0, 4, "fitnesses", Some(&format_label))
+        .expect("Error write_string");
+    let write_gen = |fitness_sheet: &mut Worksheet,
+                     gen: u64,
+                     highest_fitness: usize,
+                     average_fitness: usize,
+                     lowest_fitness: usize,
+                     fitnesses: &[usize]| {
+        let (gen, gen_value, highest_fitness, average_fitness, lowest_fitness) = (
+            gen as u32,
+            gen as f64,
+            highest_fitness as f64,
+            average_fitness as f64,
+            lowest_fitness as f64,
+        );
+        fitness_sheet
+            .write_number(gen, 0, gen_value, None)
+            .expect("Error write_number");
+        fitness_sheet
+            .write_number(gen, 1, highest_fitness, None)
+            .expect("Error write_number");
+        fitness_sheet
+            .write_number(gen, 2, average_fitness, None)
+            .expect("Error write_number");
+        fitness_sheet
+            .write_number(gen, 3, lowest_fitness, None)
+            .expect("Error write_number");
+        for col in 4..(fitnesses.len() + 4) {
+            fitness_sheet
+                .write_number(gen, col as u16, fitnesses[col - 4] as f64, None)
+                .expect("Error write_number");
+        }
+    };
+    let mut final_result_sheet = workbook
+        .add_worksheet(Some("Final Results"))
+        .expect("Error creating sheet");
+    final_result_sheet
+        .write_string(0, 0, "stop_reason", Some(&format_label))
+        .expect("Error write_string");
+    final_result_sheet
+        .write_string(1, 0, "best_solution", Some(&format_label))
+        .expect("Error write_string");
+    final_result_sheet
+        .write_string(1, 1, "初救阶段", Some(&format_label))
+        .expect("Error write_string");
+    final_result_sheet
+        .write_string(10, 1, "补救阶段", Some(&format_label))
+        .expect("Error write_string");
+    final_result_sheet
+        .write_string(1, 2, "受灾点", Some(&format_label))
+        .expect("Error write_string");
+    final_result_sheet
+        .write_string(10, 2, "受灾点", Some(&format_label))
+        .expect("Error write_string");
+    for u in 0..2 {
+        for col in 3..12 {
+            final_result_sheet
+                .write_number((1 + u * 9) as u32, col, (col - 2) as f64, None)
+                .expect("Error write_number");
+        }
+        for k in 0..NUM_VEHICLES {
+            final_result_sheet
+                .merge_range(
+                    (2 + k * 2 + u * 9) as u32,
+                    1,
+                    (3 + k * 2 + u * 9) as u32,
+                    1,
+                    &format!("车辆{}", k + 1),
+                    Some(&format_label),
+                )
+                .expect("Error merge_range");
+            final_result_sheet
+                .write_string((2 + k * 2 + u * 9) as u32, 2, "分配", Some(&format_label))
+                .expect("Error write_string");
+            final_result_sheet
+                .write_string((3 + k * 2 + u * 9) as u32, 2, "路径", Some(&format_label))
+                .expect("Error write_string");
+        }
+    }
 
+    let write_final =
+        |final_result_sheet: &mut Worksheet, stop_reason: &str, solution: &Solution| {
+            final_result_sheet
+                .merge_range(0, 1, 0, 11, stop_reason, None)
+                .expect("Error merge_range");
+            for k in 0..NUM_VEHICLES {
+                for i in 0..NUM_CITIES {
+                    final_result_sheet
+                        .write_number(
+                            (2 + 2 * k) as u32,
+                            (i + 3) as u16,
+                            (solution.xiko[k][i]) as f64,
+                            None,
+                        )
+                        .expect("Error write_number");
+                    final_result_sheet
+                        .write_number(
+                            (9 + 2 + 2 * k) as u32,
+                            (i + 3) as u16,
+                            (solution.xikr[k][i]) as f64,
+                            None,
+                        )
+                        .expect("Error write_number");
+                }
+                let route_o = solution.get_route_of_k_in_stage_u(k, &Stage::O);
+                let route_r = solution.get_route_of_k_in_stage_u(k, &Stage::R);
+                final_result_sheet
+                    .write_string((3 + 2 * k) as u32, 3, &format!("{:?}", route_o), None)
+                    .expect("Error write_string");
+                final_result_sheet
+                    .write_string((9 + 3 + 2 * k) as u32, 3, &format!("{:?}", route_r), None)
+                    .expect("Error write_string");
+            }
+        };
+
+    let mut plain_result_sheet = workbook
+        .add_worksheet(Some("Plain Result"))
+        .expect("Error creating sheet");
+    plain_result_sheet
+        .write_string(0, 0, "xiko", Some(&format_label))
+        .expect("Error write_string");
+    plain_result_sheet
+        .write_string(5, 0, "xikr", Some(&format_label))
+        .expect("Error write_string");
+    plain_result_sheet
+        .write_string(10, 0, "yijko,k=0", Some(&format_label))
+        .expect("Error write_string");
+    plain_result_sheet
+        .write_string(20, 0, "yijko,k=1", Some(&format_label))
+        .expect("Error write_string");
+    plain_result_sheet
+        .write_string(30, 0, "yijko,k=2", Some(&format_label))
+        .expect("Error write_string");
+    plain_result_sheet
+        .write_string(40, 0, "yijko,k=3", Some(&format_label))
+        .expect("Error write_string");
+    plain_result_sheet
+        .write_string(50, 0, "yijkr,k=0", Some(&format_label))
+        .expect("Error write_string");
+    plain_result_sheet
+        .write_string(60, 0, "yijkr,k=1", Some(&format_label))
+        .expect("Error write_string");
+    plain_result_sheet
+        .write_string(70, 0, "yijkr,k=2", Some(&format_label))
+        .expect("Error write_string");
+    plain_result_sheet
+        .write_string(80, 0, "yijkr,k=3", Some(&format_label))
+        .expect("Error write_string");
+    let write_plain_results = |plain_result_sheet: &mut Worksheet, solution: &Solution| {
+        for k in 0..NUM_VEHICLES {
+            for i in 0..NUM_CITIES {
+                plain_result_sheet
+                    .write_number((k + 1) as u32, i as u16, solution.xiko[k][i] as f64, None)
+                    .expect("Error write_number");
+                plain_result_sheet
+                    .write_number((k + 6) as u32, i as u16, solution.xikr[k][i] as f64, None)
+                    .expect("Error write_number");
+            }
+        }
+        for k in 0..NUM_VEHICLES {
+            for i in 0..NUM_CITIES {
+                for j in 0..NUM_CITIES {
+                    plain_result_sheet
+                        .write_boolean(
+                            (11 + k * 10 + i) as u32,
+                            j as u16,
+                            solution.yijko[k][i][j],
+                            None,
+                        )
+                        .expect("Error write_boolean");
+                    plain_result_sheet
+                        .write_boolean(
+                            (51 + k * 10 + i) as u32,
+                            j as u16,
+                            solution.yijkr[k][i][j],
+                            None,
+                        )
+                        .expect("Error write_boolean");
+                }
+            }
+        }
+    };
 
     let params = Parameter::default();
 
@@ -249,11 +474,6 @@ fn main() {
         .with_genome_builder(ValueEncodedGenomeBuilder::new(TOTAL_LEN, 0, 0b1111_1111))
         .of_size(params.population_size)
         .uniform_at_random();
-
-    for individual in initial_population.individuals(){
-        individual.as_solution().f1();
-        individual.as_solution().f2();
-    }
 
     let mut sim = simulate(
         genetic_algorithm()
@@ -297,13 +517,21 @@ fn main() {
                     best_solution.solution.fitness,
                     step.duration.fmt(),
                     step.processing_time.fmt(),
-                    );
+                );
+                write_gen(
+                    &mut fitness_sheet,
+                    step.iteration,
+                    best_solution.solution.fitness,
+                    *evaluated_population.average_fitness(),
+                    *evaluated_population.lowest_fitness(),
+                    evaluated_population.fitness_values(),
+                );
                 // println!("uniformalized_f: {}",best_solution.solution.genome.as_solution().uniformalized_f());
                 // dbg!(&best_solution.solution.genome.as_solution().xiko[0]);
-            },
+            }
             Ok(SimResult::Final(step, processing_time, duration, stop_reason)) => {
-                let best_solution=step.result.best_solution;
-                println!("{}",stop_reason);
+                let best_solution = step.result.best_solution;
+                println!("{}", stop_reason);
                 println!(
                     "Final result after {}: generation: {}, \
                     best solution with fitness {} found in generation {}, processing_time: {}",
@@ -312,17 +540,38 @@ fn main() {
                     best_solution.solution.fitness,
                     best_solution.generation,
                     processing_time.fmt(),
-                    );
-                println!("best solution: \n{}",best_solution.solution.genome.as_solution().fmt());
-                // println!("{}",best_solution.solution.genome.as_solution().uniformalized_f());
+                );
+                println!(
+                    "best solution: \n{}",
+                    best_solution.solution.genome.as_solution().fmt()
+                );
+
+                write_final(
+                    &mut final_result_sheet,
+                    &stop_reason,
+                    &best_solution.solution.genome.as_solution(),
+                );
+                write_plain_results(
+                    &mut plain_result_sheet,
+                    &best_solution.solution.genome.as_solution(),
+                );
+                // println!("uniformalized_f: {}, fitness: {}",best_solution.solution.genome.as_solution().uniformalized_f(), best_solution.solution.fitness);
+                // let calc = FitnessCalc;
+                // println!("再算一遍fitness：{}",calc.fitness_of(&best_solution.solution.genome));
                 // println!("{}, {}", best_solution.solution.genome.as_solution().f1(),best_solution.solution.genome.as_solution().f2());
 
                 break;
-            },
+            }
             Err(e) => {
                 println!("{e}");
                 break;
-            },
+            }
         }
+    }
+
+    // Post work
+    if let Err(e) = workbook.close() {
+        eprintln!("{e}");
+        process::exit(1);
     }
 }

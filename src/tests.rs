@@ -53,40 +53,42 @@ fn test_decode() {
 }
 
 #[test]
-fn max_f1(){
-    let xiko:Vec<Vec<usize>>=Vec::new();
-    let xikr:Vec<Vec<usize>>=Vec::new();
-    let mut yijko:Vec<Vec<Vec<bool>>>=Vec::new();
-    let mut yijkr:Vec<Vec<Vec<bool>>>=Vec::new();
-    for k in 0..NUM_VEHICLES{
+fn max_f1() {
+    let xiko: Vec<Vec<usize>> = Vec::new();
+    let xikr: Vec<Vec<usize>> = Vec::new();
+    let mut yijko: Vec<Vec<Vec<bool>>> = Vec::new();
+    let mut yijkr: Vec<Vec<Vec<bool>>> = Vec::new();
+    for k in 0..NUM_VEHICLES {
         yijko.push(Vec::new());
         yijkr.push(Vec::new());
-        for i in 0..NUM_CITIES{
+        for i in 0..NUM_CITIES {
             yijko[k].push(Vec::new());
             yijkr[k].push(Vec::new());
-            for _ in 0..NUM_CITIES{
+            for _ in 0..NUM_CITIES {
                 yijko[k][i].push(true);
                 yijkr[k][i].push(true);
             }
         }
     }
-    let sol=Solution{
+    let sol = Solution {
         xiko,
         xikr,
         yijko,
         yijkr,
     };
-    let max=sol.f1();
-    assert_eq!(max,123f64);
+    let max = sol.f1();
+    assert_eq!(max, 123f64);
 }
 
 #[test]
-fn max_f2(){
-    let N = [37209, 34583, 33075, 32145, 26916, 15453, 13476, 10560, 10006];
-    let mut sum=0i32;
-    for elem in N.iter(){
-        sum+=elem;
+fn max_f2() {
+    let N = [
+        37209, 34583, 33075, 32145, 26916, 15453, 13476, 10560, 10006,
+    ];
+    let mut sum = 0i32;
+    for elem in N.iter() {
+        sum += elem;
     }
-    let avg = sum/9;
-    assert_eq!(avg,18);
+    let avg = sum / 9;
+    assert_eq!(avg, 18);
 }
