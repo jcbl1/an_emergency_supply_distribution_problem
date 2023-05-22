@@ -1,122 +1,122 @@
-use std::{sync::atomic::Ordering, thread, time::Duration, eprintln};
+use std::{eprintln, sync::atomic::Ordering, thread, time::Duration};
 
 use super::*;
 
 #[cfg(test)]
 mod tests;
 
-const WEIGHTS:[f64;5]=[0.2;5];
+const WEIGHTS: [f64; 5] = [0.2; 5];
 // const WEIGHTS:[f64;2]=[0.5;2];
 
-static T_O:AtomicUsize=AtomicUsize::new(0);
-static SHOW_PARTS_COUNT:AtomicUsize=AtomicUsize::new(0);
+static T_O: AtomicUsize = AtomicUsize::new(0);
+static SHOW_PARTS_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-fn max(num1:f64,num2:f64)->f64{
-    if num1>num2{
+fn max(num1: f64, num2: f64) -> f64 {
+    if num1 > num2 {
         num1
-    } else{
+    } else {
         num2
     }
 }
 
-fn demand_with_time(t:f64)->f64{
-    t.exp()/100f64
+fn demand_with_time_of_i(t: f64, i: usize) -> f64 {
+    DEMANDS[i] as f64 * (t).powf(1.15) / 1.43
+    // println!("demand with time {} of {}, base {}: {}", t,i,DEMANDS[i], result);
+    // result
 }
 
 #[derive(Debug)]
-pub enum Stage{
+pub enum Stage {
     O,
     R,
 }
 
-pub trait Calcs{
-    fn f1(&self)->f64;
-    fn f2(&self)->f64;
-    fn utility_of_i_in_stage_u(&self,i:usize,u:&Stage)->f64;
-    fn delivered_to_i_in_stage_u(&self,i:usize,u:&Stage)->f64;
-    fn uniformalized_f(&self)->f64;
-    fn satisfaction_to_restriction_8(&self)->f64;
-    fn demand_of_i_in_stage_u(&self,i:usize,u:&Stage)->f64;
-    fn time_cost_for_k_to_reach_i_in_stage_u(&self,k:usize,i:usize,u:&Stage)->f64;
-    fn satisfaction_to_restriction_11(&self)->f64;
-    fn satisfaction_to_restriction_12(&self)->f64;
-    fn get_route_of_k_in_stage_u(&self, k:usize,u:&Stage)->Vec<usize>;
+pub trait Calcs {
+    fn f1(&self) -> f64;
+    fn f2(&self) -> f64;
+    fn utility_of_i_in_stage_u(&self, i: usize, u: &Stage) -> f64;
+    fn delivered_to_i_in_stage_u(&self, i: usize, u: &Stage) -> f64;
+    fn uniformalized_f(&self) -> f64;
+    fn satisfaction_to_restriction_8(&self) -> f64;
+    fn demand_of_i_in_stage_u(&self, i: usize, u: &Stage) -> f64;
+    fn time_cost_for_k_to_reach_i_in_stage_u(&self, k: usize, i: usize, u: &Stage) -> f64;
+    fn satisfaction_to_restriction_11(&self) -> f64;
+    fn satisfaction_to_restriction_12(&self) -> f64;
+    fn get_route_of_k_in_stage_u(&self, k: usize, u: &Stage) -> Vec<usize>;
 }
 
 impl Calcs for Solution {
-    fn f1(&self)->f64{
+    fn f1(&self) -> f64 {
         let mut result = 0.;
-        for k in 0..NUM_VEHICLES{
-            for j in 0..NUM_CITIES{
-                for i in 0..NUM_CITIES{
-                    result+=if self.yijko[k][j][i]{
-                        T[j][i]
-                    }else{
-                        0.
-                    };
-                    result+=if self.yijkr[k][j][i]{
-                        T[j][i]
-                    }else{
-                        0.
-                    };
+        for k in 0..NUM_VEHICLES {
+            for j in 0..NUM_CITIES {
+                for i in 0..NUM_CITIES {
+                    result += if self.yijko[k][j][i] { T[j][i] } else { 0. };
+                    result += if self.yijkr[k][j][i] { T[j][i] } else { 0. };
                 }
             }
         }
 
-        MAX_F1.fetch_max(result as isize,Ordering::Relaxed);
-        MIN_F1.fetch_min(result as isize,Ordering::Relaxed);
+        MAX_F1.fetch_max(result as isize, Ordering::Relaxed);
+        MIN_F1.fetch_min(result as isize, Ordering::Relaxed);
 
         result
     }
-    fn f2(&self)->f64{
+    fn f2(&self) -> f64 {
         let mut result = 0f64;
-        for i in 0..NUM_CITIES{
-            result-=self.utility_of_i_in_stage_u(i, &Stage::O);
-            result-=self.utility_of_i_in_stage_u(i, &Stage::R);
+        for i in 0..NUM_CITIES {
+            result -= self.utility_of_i_in_stage_u(i, &Stage::O);
+            result -= self.utility_of_i_in_stage_u(i, &Stage::R);
         }
 
-        MAX_F2.fetch_max(result as isize,Ordering::Relaxed);
-        MIN_F2.fetch_min(result as isize,Ordering::Relaxed);
+        MAX_F2.fetch_max(result as isize, Ordering::Relaxed);
+        MIN_F2.fetch_min(result as isize, Ordering::Relaxed);
 
         result
     }
-    fn utility_of_i_in_stage_u(&self,i:usize,u:&Stage)->f64 {
+    fn utility_of_i_in_stage_u(&self, i: usize, u: &Stage) -> f64 {
         let xi = self.delivered_to_i_in_stage_u(i, u);
         let mut utility = xi;
-        for j in 0..NUM_CITIES{
-            utility-=(ALPHA[i]*(max(self.delivered_to_i_in_stage_u(j, u)-xi, 0f64)/(NUM_CITIES as f64 -1f64))as f64)as f64;
-            utility-=(BETA[i]*(xi-max(self.delivered_to_i_in_stage_u(j, u), 0f64)/(NUM_CITIES as f64 -1f64))as f64)as f64;
+        for j in 0..NUM_CITIES {
+            utility -= (ALPHA[i]
+                * (max(self.delivered_to_i_in_stage_u(j, u) - xi, 0f64)
+                    / (NUM_CITIES as f64 - 1f64)) as f64) as f64;
+            utility -= (BETA[i]
+                * (xi
+                    - max(self.delivered_to_i_in_stage_u(j, u), 0f64) / (NUM_CITIES as f64 - 1f64))
+                    as f64) as f64;
         }
         utility
     }
-    fn delivered_to_i_in_stage_u(&self,i:usize,u:&Stage)->f64{
-        let mut sum=0f64;
-        
-        for k in 0..NUM_VEHICLES{
-            sum+=match u{
-                Stage::O=>self.xiko[k][i] as f64,
-                Stage::R=>self.xikr[k][i] as f64,
+    fn delivered_to_i_in_stage_u(&self, i: usize, u: &Stage) -> f64 {
+        let mut sum = 0f64;
+
+        for k in 0..NUM_VEHICLES {
+            sum += match u {
+                Stage::O => self.xiko[k][i] as f64,
+                Stage::R => self.xikr[k][i] as f64,
             }
         }
 
         sum
     }
 
-    fn uniformalized_f(&self)->f64 {
+    fn uniformalized_f(&self) -> f64 {
         let mut result = 0f64;
-        let (max_f1,min_f1,max_f2,min_f2)=(
-            MAX_F1.load(Ordering::Relaxed)as f64,
-            MIN_F1.load(Ordering::Relaxed)as f64,
-            MAX_F2.load(Ordering::Relaxed)as f64,
-            MIN_F2.load(Ordering::Relaxed)as f64,
-            );
+        let (max_f1, min_f1, max_f2, min_f2) = (
+            MAX_F1.load(Ordering::Relaxed) as f64,
+            MIN_F1.load(Ordering::Relaxed) as f64,
+            MAX_F2.load(Ordering::Relaxed) as f64,
+            MIN_F2.load(Ordering::Relaxed) as f64,
+        );
         // println!("max_f1: {}, min_f1: {}, max_f2: {}, min_f2: {}", max_f1,min_f1,max_f2,min_f2);
-        let mut parts=Vec::new();
-        parts.push((self.f1()-min_f1)/(max_f1-min_f1));
-        parts.push((self.f2()-min_f2)/(max_f2-min_f2));
+        let mut parts = Vec::new();
+        parts.push((self.f1() - min_f1) / (max_f1 - min_f1));
+        parts.push((self.f2() - min_f2) / (max_f2 - min_f2));
         parts.push(self.satisfaction_to_restriction_8());
         parts.push(self.satisfaction_to_restriction_11());
         parts.push(self.satisfaction_to_restriction_12());
+        // dbg!(&parts);
         // if SHOW_PARTS_COUNT.load(Ordering::Relaxed)>5000{
         //     dbg!(&parts);
         //     SHOW_PARTS_COUNT.store(0, Ordering::Relaxed);
@@ -124,74 +124,90 @@ impl Calcs for Solution {
         //     SHOW_PARTS_COUNT.fetch_add(1, Ordering::Relaxed);
         // }
         // thread::sleep(Duration::from_secs(1));
-        for (i,part) in parts.iter().enumerate(){
-            result+=WEIGHTS[i]*part;
+        for (i, part) in parts.iter().enumerate() {
+            result += WEIGHTS[i] * part;
+        }
+        if result <= 0f64 {
+            panic!("uniformalized_f is less than 0. parts: {:?}", parts);
         }
 
         result
     }
 
-    fn satisfaction_to_restriction_8(&self)->f64 {
-        let mut result=0f64;
-        for i in 0..NUM_CITIES{
-            let (mut sum1,mut sum2)=(0f64,0f64);
-            for k in 0..NUM_VEHICLES{
-                sum1+=self.xiko[k][i]as f64;
-                sum2+=self.xikr[k][i]as f64;
-                let delinquency =(self.demand_of_i_in_stage_u(i, &Stage::O)+self.demand_of_i_in_stage_u(i, &Stage::R)-sum1-sum2).powi(2);
+    fn satisfaction_to_restriction_8(&self) -> f64 {
+        let mut result = 0f64;
+        for i in 0..NUM_CITIES {
+            let (mut sum1, mut sum2) = (0f64, 0f64);
+            for k in 0..NUM_VEHICLES {
+                sum1 += self.xiko[k][i] as f64;
+                sum2 += self.xikr[k][i] as f64;
+                let delinquency = (self.demand_of_i_in_stage_u(i, &Stage::O)
+                    + self.demand_of_i_in_stage_u(i, &Stage::R)
+                    - sum1
+                    - sum2)
+                    .powi(2);
                 // dbg!(&delinquency);
-                result+=(delinquency)/(108022500000000f64.powi(2))/9f64;
+                result += (delinquency) / (90802250000f64.powi(2)) / 9f64;
             }
         }
 
         // let result_of_r_8 =result;
         // dbg!(&result_of_r_8);
         // thread::sleep(Duration::from_secs(1));
-        if result > 1f64{
+        if result > 1f64 {
             eprintln!("约束8的目标值大于1了, result: {result}");
             eprintln!("Routes:");
-            for k in 0..NUM_VEHICLES{
-                eprintln!("{:?}",self.get_route_of_k_in_stage_u(k, &Stage::O));
-                eprintln!("{:?}",self.get_route_of_k_in_stage_u(k, &Stage::R));
+            for k in 0..NUM_VEHICLES {
+                eprintln!("{:?}", self.get_route_of_k_in_stage_u(k, &Stage::O));
+                eprintln!("{:?}", self.get_route_of_k_in_stage_u(k, &Stage::R));
             }
             panic!();
         }
         result
     }
 
-    fn demand_of_i_in_stage_u(&self,i:usize,u:&Stage)->f64 {
-        let mut result=0f64;
+    fn demand_of_i_in_stage_u(&self, i: usize, u: &Stage) -> f64 {
+        let mut result = 0f64;
         match u {
-            Stage::O=>{
-                result+=DEMANDS[i]as f64;
-                'outer: for k in 0..NUM_VEHICLES{
-                    for j in 0..NUM_CITIES{
-                        if self.yijko[k][j][i]{
-                            result+=DEMANDS[i]as f64 * demand_with_time(self.time_cost_for_k_to_reach_i_in_stage_u(k, i, u));
+            Stage::O => {
+                result += DEMANDS[i] as f64;
+                'outer: for k in 0..NUM_VEHICLES {
+                    for j in 0..NUM_CITIES {
+                        if self.yijko[k][j][i] {
+                            result += DEMANDS[i] as f64
+                                * demand_with_time_of_i(
+                                    self.time_cost_for_k_to_reach_i_in_stage_u(k, i, u),
+                                    i,
+                                );
                             break 'outer;
                         }
                     }
                 }
             }
-            Stage::R=>{
-                result+=self.demand_of_i_in_stage_u(i, &Stage::O);
-                let mut count=false;
-                'outer: for k in 0..NUM_VEHICLES{
-                    for j in 0..NUM_CITIES{
-                        if self.yijko[k][j][i]{
-                            result-=self.xiko[k][i]as f64;
-                            if count{
+            Stage::R => {
+                result += self.demand_of_i_in_stage_u(i, &Stage::O);
+                let mut count = false;
+                'outer: for k in 0..NUM_VEHICLES {
+                    for j in 0..NUM_CITIES {
+                        if self.yijko[k][j][i] {
+                            result -= self.xiko[k][i] as f64;
+                            if count {
                                 break 'outer;
-                            } else{
-                                count=true;
+                            } else {
+                                count = true;
                             }
                         }
-                        if self.yijkr[k][j][i]{
-                            result+=DEMANDS[i]as f64*demand_with_time(self.time_cost_for_k_to_reach_i_in_stage_u(k, i, u)-T_O.load(Ordering::Relaxed)as f64/100f64);
-                            if count{
+                        if self.yijkr[k][j][i] {
+                            result += DEMANDS[i] as f64
+                                * demand_with_time_of_i(
+                                    self.time_cost_for_k_to_reach_i_in_stage_u(k, i, u)
+                                        - T_O.load(Ordering::Relaxed) as f64 / 100f64,
+                                    i,
+                                );
+                            if count {
                                 break 'outer;
-                            }else{
-                                count=true;
+                            } else {
+                                count = true;
                             }
                         }
                     }
@@ -202,72 +218,72 @@ impl Calcs for Solution {
         result
     }
 
-    fn time_cost_for_k_to_reach_i_in_stage_u(&self,k:usize,i:usize,u:&Stage)->f64 {
-        let mut result=0f64;
+    fn time_cost_for_k_to_reach_i_in_stage_u(&self, k: usize, i: usize, u: &Stage) -> f64 {
+        let mut result = 0f64;
         match u {
-            Stage::O=>{
-                let route=self.get_route_of_k_in_stage_u(k, u);
-                let mut j0=&route[0];
-                for j in route.iter(){
-                    if j!=j0{
-                        result+=T[*j0][*j];
-                        j0=j;
+            Stage::O => {
+                let route = self.get_route_of_k_in_stage_u(k, u);
+                let mut j0 = &route[0];
+                for j in route.iter() {
+                    if j != j0 {
+                        result += T[*j0][*j];
+                        j0 = j;
                     }
-                    if *j==i{
+                    if *j == i {
                         break;
                     }
                 }
 
-                T_O.fetch_max((result*100f64)as usize, Ordering::Relaxed);
-            },
-            Stage::R=>{
-                result+=T_O.load(Ordering::Relaxed)as f64/100f64;
-                let route=self.get_route_of_k_in_stage_u(k, u);
-                let mut j0=&route[0];
-                for j in route.iter(){
-                    if j!=j0{
-                        result+=T[*j0][*j];
-                        j0=j;
+                T_O.fetch_max((result * 100f64) as usize, Ordering::Relaxed);
+            }
+            Stage::R => {
+                result += T_O.load(Ordering::Relaxed) as f64 / 100f64;
+                let route = self.get_route_of_k_in_stage_u(k, u);
+                let mut j0 = &route[0];
+                for j in route.iter() {
+                    if j != j0 {
+                        result += T[*j0][*j];
+                        j0 = j;
                     }
-                    if *j==i{
+                    if *j == i {
                         break;
                     }
                 }
-            },
+            }
         }
 
         result
-        
+
         // rand::thread_rng().gen_range::<f64,_>(2f64..20f64)
     }
 
-    fn satisfaction_to_restriction_11(&self)->f64 {
-        let mut result=0f64;
-        for i in 0..NUM_CITIES{
-            let (mut delinquency_o,mut delinquency_r)=(0f64,0f64);
-            for j in 0..NUM_CITIES{
-                for k in 0..NUM_VEHICLES{
-                    if self.yijko[k][j][i]{
-                        delinquency_o+=1f64;
+    fn satisfaction_to_restriction_11(&self) -> f64 {
+        let mut result = 0f64;
+        for i in 0..NUM_CITIES {
+            let (mut delinquency_o, mut delinquency_r) = (0f64, 0f64);
+            for j in 0..NUM_CITIES {
+                for k in 0..NUM_VEHICLES {
+                    if self.yijko[k][j][i] {
+                        delinquency_o += 1f64;
                     }
-                    if self.yijkr[k][j][i]{
-                        delinquency_r+=1f64;
+                    if self.yijkr[k][j][i] {
+                        delinquency_r += 1f64;
                     }
                 }
             }
-            delinquency_o-=1f64;
-            delinquency_r-=1f64;
-            let delinquency_o=max(delinquency_o,0f64).powi(2);
-            let delinquency_r=max(delinquency_r,0f64).powi(2);
+            delinquency_o -= 1f64;
+            delinquency_r -= 1f64;
+            let delinquency_o = max(delinquency_o, 0f64).powi(2);
+            let delinquency_r = max(delinquency_r, 0f64).powi(2);
             // dbg!(&delinquency_o,&delinquency_r);
-            let delinquency_o=delinquency_o/450f64/18f64;
-            let delinquency_r=delinquency_r/450f64/18f64;
+            let delinquency_o = delinquency_o / 450f64 / 18f64;
+            let delinquency_r = delinquency_r / 450f64 / 18f64;
             // dbg!("after", &delinquency_o,&delinquency_r);
-            result+=delinquency_o;
-            result+=delinquency_r;
+            result += delinquency_o;
+            result += delinquency_r;
         }
 
-        if result > 1f64{
+        if result > 1f64 {
             panic!("约束11的目标值大于1了, result: {result}");
         }
 
@@ -275,95 +291,95 @@ impl Calcs for Solution {
         result
     }
 
-    fn satisfaction_to_restriction_12(&self)->f64 {
+    fn satisfaction_to_restriction_12(&self) -> f64 {
         let mut result = 0f64;
-        for h in 0..NUM_CITIES{
-            let (mut yin_o, mut yout_o) = (0f64,0f64);
-            let (mut yin_r, mut yout_r) = (0f64,0f64);
-            for k in 0..NUM_VEHICLES{
-                for i in 0..NUM_CITIES{
-                    if self.yijko[k][i][h]{
-                        yin_o+=1f64;
+        for h in 0..NUM_CITIES {
+            let (mut yin_o, mut yout_o) = (0f64, 0f64);
+            let (mut yin_r, mut yout_r) = (0f64, 0f64);
+            for k in 0..NUM_VEHICLES {
+                for i in 0..NUM_CITIES {
+                    if self.yijko[k][i][h] {
+                        yin_o += 1f64;
                     }
-                    if self.yijko[k][h][i]{
-                        yout_o+=1f64;
+                    if self.yijko[k][h][i] {
+                        yout_o += 1f64;
                     }
-                    if self.yijkr[k][i][h]{
-                        yin_r+=1f64;
+                    if self.yijkr[k][i][h] {
+                        yin_r += 1f64;
                     }
-                    if self.yijkr[k][h][i]{
-                        yout_r+=1f64;
+                    if self.yijkr[k][h][i] {
+                        yout_r += 1f64;
                     }
                 }
             }
-            result += (yin_o-yout_o).powi(2)/50f64/18f64;
-            result += (yin_r-yout_r).powi(2)/50f64/18f64;
+            result += (yin_o - yout_o).powi(2) / 60f64 / 18f64;
+            result += (yin_r - yout_r).powi(2) / 60f64 / 18f64;
         }
 
-        if result > 1f64{
+        if result > 1f64 {
             panic!("约束12的目标值大于1了, result: {result}");
         }
 
         result
     }
 
-    fn get_route_of_k_in_stage_u(&self, k:usize,u:&Stage)->Vec<usize> {
-        let mut route=Vec::new();
-        let from_i = |i:usize,route: &mut Vec<usize>|{
-            let mut i=i;
-            'loop0:loop{
-                let mut found=false;
-                'loop1:for j in 0..NUM_CITIES{
+    fn get_route_of_k_in_stage_u(&self, k: usize, u: &Stage) -> Vec<usize> {
+        let mut route = Vec::new();
+        let from_i = |i: usize, route: &mut Vec<usize>| {
+            let mut i = i;
+            'loop0: loop {
+                let mut found = false;
+                'loop1: for j in 0..NUM_CITIES {
                     match u {
-                        Stage::O=>{
-                            if self.yijko[k][i][j]{
-                                for existed in route.iter(){
-                                    if j==*existed{
+                        Stage::O => {
+                            if self.yijko[k][i][j] {
+                                for existed in route.iter() {
+                                    if j == *existed {
                                         continue 'loop1;
                                     }
                                 }
                                 route.push(j);
-                                i=j;
-                                found=true;
+                                i = j;
+                                found = true;
                                 break;
                             }
                         }
-                        Stage::R=>{
-                            if self.yijkr[k][i][j]{
-                                for existed in route.iter(){
-                                    if j==*existed{
+                        Stage::R => {
+                            if self.yijkr[k][i][j] {
+                                for existed in route.iter() {
+                                    if j == *existed {
                                         continue 'loop1;
                                     }
                                 }
                                 route.push(j);
-                                i=j;
-                                found=true;
+                                i = j;
+                                found = true;
                                 break;
                             }
                         }
                     }
                 }
-                if !found{
+                if !found {
                     break;
                 }
             }
         };
-        'loop0:for i in 0..NUM_CITIES{
-            for j in 1..NUM_CITIES{
+        'loop0: for i in 0..NUM_CITIES {
+            for j in 1..NUM_CITIES {
                 match u {
-                    Stage::O=>{
-                        if self.yijko[k][i][j]{
+                    Stage::O => {
+                        if self.yijko[k][i][j] {
                             route.push(i);
                             route.push(j);
-                            from_i(j,&mut route);
+                            from_i(j, &mut route);
                             break 'loop0;
                         }
                     }
-                    Stage::R=>{
-                        if self.yijkr[k][i][j]{
+                    Stage::R => {
+                        if self.yijkr[k][i][j] {
                             route.push(i);
                             route.push(j);
-                            from_i(j,&mut route);
+                            from_i(j, &mut route);
                             break 'loop0;
                         }
                     }
@@ -376,7 +392,7 @@ impl Calcs for Solution {
 }
 
 impl Solution {
-    fn random_new()->Solution{
+    fn random_new() -> Solution {
         let mut genome: Genome = Vec::new();
         for _ in 0..NUM_VEHICLES {
             for _ in 0..NUM_CITIES {
