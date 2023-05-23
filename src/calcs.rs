@@ -36,7 +36,7 @@ pub trait Calcs {
     fn f2(&self) -> f64;
     fn utility_of_i_in_stage_u(&self, i: usize, u: &Stage) -> f64;
     fn delivered_to_i_in_stage_u(&self, i: usize, u: &Stage) -> f64;
-    fn uniformalized_f(&self) -> f64;
+    fn uniformalized_f(&mut self) -> f64;
     fn satisfaction_to_restriction_8(&self) -> f64;
     fn demand_of_i_in_stage_u(&self, i: usize, u: &Stage) -> f64;
     fn time_cost_for_k_to_reach_i_in_stage_u(&self, k: usize, i: usize, u: &Stage) -> f64;
@@ -101,7 +101,7 @@ impl Calcs for Solution {
         sum
     }
 
-    fn uniformalized_f(&self) -> f64 {
+    fn uniformalized_f(&mut self) -> f64 {
         let mut result = 0f64;
         let (max_f1, min_f1, max_f2, min_f2) = (
             MAX_F1.load(Ordering::Relaxed) as f64,
@@ -110,12 +110,11 @@ impl Calcs for Solution {
             MIN_F2.load(Ordering::Relaxed) as f64,
         );
         // println!("max_f1: {}, min_f1: {}, max_f2: {}, min_f2: {}", max_f1,min_f1,max_f2,min_f2);
-        let mut parts = Vec::new();
-        parts.push((self.f1() - min_f1) / (max_f1 - min_f1));
-        parts.push((self.f2() - min_f2) / (max_f2 - min_f2));
-        parts.push(self.satisfaction_to_restriction_8());
-        parts.push(self.satisfaction_to_restriction_11());
-        parts.push(self.satisfaction_to_restriction_12());
+        self.parts[0] = (self.f1() - min_f1) / (max_f1 - min_f1);
+        self.parts[1] = (self.f2() - min_f2) / (max_f2 - min_f2);
+        self.parts[2] = self.satisfaction_to_restriction_8();
+        self.parts[3] = self.satisfaction_to_restriction_11();
+        self.parts[4] = self.satisfaction_to_restriction_12();
         // dbg!(&parts);
         // if SHOW_PARTS_COUNT.load(Ordering::Relaxed)>5000{
         //     dbg!(&parts);
@@ -124,11 +123,11 @@ impl Calcs for Solution {
         //     SHOW_PARTS_COUNT.fetch_add(1, Ordering::Relaxed);
         // }
         // thread::sleep(Duration::from_secs(1));
-        for (i, part) in parts.iter().enumerate() {
+        for (i, part) in self.parts.iter().enumerate() {
             result += WEIGHTS[i] * part;
         }
         if result <= 0f64 {
-            panic!("uniformalized_f is less than 0. parts: {:?}", parts);
+            panic!("uniformalized_f is less than 0. parts: {:?}", self.parts);
         }
 
         result
