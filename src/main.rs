@@ -3,7 +3,7 @@ use std::{
     io::{stdout, Write},
     println,
     process::{self, ExitCode},
-    sync::atomic::{AtomicIsize, AtomicUsize},
+    sync::atomic::{AtomicIsize, AtomicUsize, Ordering},
 };
 
 use crate::calcs::*;
@@ -56,6 +56,8 @@ static MAX_F2: AtomicIsize = AtomicIsize::new(7_000_000isize);
 // static MIN_F2: AtomicIsize = AtomicIsize::new((f64::INFINITY) as isize);
 static MIN_F2: AtomicIsize = AtomicIsize::new(5_000_000isize);
 
+static UNTIL_NEXT_STAGE: AtomicUsize = AtomicUsize::new(0);
+
 #[derive(Debug)]
 struct Parameter {
     population_size: usize,
@@ -87,6 +89,7 @@ struct Solution {
     xikr: Vec<Vec<usize>>,
     yijko: Vec<Vec<Vec<bool>>>,
     yijkr: Vec<Vec<Vec<bool>>>,
+    parts: Vec<f64>,
 }
 
 impl Display for Solution {
@@ -222,12 +225,15 @@ impl AsPhenotype for Genome {
             }
         }
 
-        Solution {
+        let mut solution = Solution {
             xiko,
             xikr,
             yijko,
             yijkr,
-        }
+            parts: vec![0., 0., 0., 0., 0.],
+        };
+        solution.uniformalized_f();
+        solution
     }
 }
 
@@ -238,7 +244,7 @@ impl FitnessFunction<Genome, usize> for FitnessCalc {
     // TODO: 适应度函数
     fn fitness_of(&self, genome: &Genome) -> usize {
         let mut fitness: usize = HIGHEST_FITNESS;
-        let solution = genome.as_solution();
+        let mut solution = genome.as_solution();
         let uniformalized_f = solution.uniformalized_f();
         // dbg!(&uniformalized_f);
         let subtraction = uniformalized_f * (HIGHEST_FITNESS as f64);
@@ -261,7 +267,7 @@ impl FitnessFunction<Genome, usize> for FitnessCalc {
 }
 
 fn parse_matches() -> ArgMatches {
-    Command::new(env!("CARGO_CRATE_NAME"))
+    Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about("毕业论文模型遗传算法实现.")
@@ -292,6 +298,13 @@ fn parse_matches() -> ArgMatches {
                 .help("Debug mode")
                 .action(ArgAction::SetTrue),
         )
+        .arg(
+            Arg::new("stage_save")
+                .short('s')
+                .long("stage-save")
+                .help("是否需要记录阶段性结果")
+                .action(ArgAction::SetTrue),
+        )
         .get_matches()
 }
 
@@ -312,8 +325,8 @@ fn main() {
     });
     let workbook =
         Workbook::new(&format!("{}/{}.xlsx", output, uuid_)).expect("Error creating file");
-    println!("Created {}.xlsx in {}", uuid_, output);
-    println!("Setting up the xlsx file...");
+    println!("结果将会存放在{}/{}.xlsx.", output, uuid_);
+    println!("正在初始化xlsx文件...");
     let mut format_label = Format::new();
     format_label
         .set_bold()
@@ -334,14 +347,25 @@ fn main() {
     fitness_sheet
         .write_string(0, 3, "lowest_fitness", Some(&format_label))
         .expect("Error write_string");
+    for i in 0..5 {
+        fitness_sheet
+            .write_string(
+                0,
+                (4 + i) as u16,
+                &format!("parts[{}]", i),
+                Some(&format_label),
+            )
+            .expect("Error write_string");
+    }
     fitness_sheet
-        .write_string(0, 4, "fitnesses", Some(&format_label))
+        .write_string(0, 9, "fitnesses", Some(&format_label))
         .expect("Error write_string");
     let write_gen = |fitness_sheet: &mut Worksheet,
                      gen: u64,
                      highest_fitness: usize,
                      average_fitness: usize,
                      lowest_fitness: usize,
+                     parts: &Vec<f64>,
                      fitnesses: &[usize]| {
         let (gen, gen_value, highest_fitness, average_fitness, lowest_fitness) = (
             gen as u32,
@@ -362,9 +386,14 @@ fn main() {
         fitness_sheet
             .write_number(gen, 3, lowest_fitness, None)
             .expect("Error write_number");
-        for col in 4..(fitnesses.len() + 4) {
+        for i in 0..5 {
             fitness_sheet
-                .write_number(gen, col as u16, fitnesses[col - 4] as f64, None)
+                .write_number(gen, (4 + i) as u16, parts[i], None)
+                .expect("Error write_number");
+        }
+        for col in 9..(fitnesses.len() + 9) {
+            fitness_sheet
+                .write_number(gen, col as u16, fitnesses[col - 9] as f64, None)
                 .expect("Error write_number");
         }
     };
@@ -518,6 +547,44 @@ fn main() {
         }
     };
 
+    let write_stage = |workbook: &Workbook, gen: u64, solution: &Solution| {
+        let mut sheet = workbook
+            .add_worksheet(Some(&format!("gen {gen}")))
+            .expect("Error creating sheet");
+        sheet
+            .write_string(0, 0, "xiko", Some(&format_label))
+            .expect("Error write_string");
+        sheet
+            .write_string(5, 0, "xikr", Some(&format_label))
+            .expect("Error write_string");
+        sheet
+            .write_string(10, 0, "yijko,k=0", Some(&format_label))
+            .expect("Error write_string");
+        sheet
+            .write_string(20, 0, "yijko,k=1", Some(&format_label))
+            .expect("Error write_string");
+        sheet
+            .write_string(30, 0, "yijko,k=2", Some(&format_label))
+            .expect("Error write_string");
+        sheet
+            .write_string(40, 0, "yijko,k=3", Some(&format_label))
+            .expect("Error write_string");
+        sheet
+            .write_string(50, 0, "yijkr,k=0", Some(&format_label))
+            .expect("Error write_string");
+        sheet
+            .write_string(60, 0, "yijkr,k=1", Some(&format_label))
+            .expect("Error write_string");
+        sheet
+            .write_string(70, 0, "yijkr,k=2", Some(&format_label))
+            .expect("Error write_string");
+        sheet
+            .write_string(80, 0, "yijkr,k=3", Some(&format_label))
+            .expect("Error write_string");
+
+        write_plain_results(&mut sheet, &solution);
+    };
+
     let mut params = Parameter::default();
     if let Some(generation_limit) = matches.get_one::<String>("generation_limit") {
         let generation_limit = generation_limit
@@ -540,6 +607,9 @@ fn main() {
     if debug_mode {
         dbg!(&params);
     }
+
+    let stage_save = matches.get_flag("stage_save");
+
     let initial_population: Population<Genome> = build_population()
         .with_genome_builder(ValueEncodedGenomeBuilder::new(TOTAL_LEN, 0, 0b1111_1111))
         .of_size(params.population_size)
@@ -572,15 +642,15 @@ fn main() {
     ))
     .build();
 
-    println!("The evolution has started.");
+    println!("开始进化.");
 
     loop {
         match sim.step() {
             Ok(SimResult::Intermediate(step)) => {
                 let evaluated_population = step.result.evaluated_population;
                 let best_solution = step.result.best_solution;
-                print!(
-                    "\rgeneration: {}, average_fitness: {}, \
+                println!(
+                    "generation: {}, average_fitness: {}, \
                     best_fitness: {}, duration: {}, processing_time: {}",
                     step.iteration,
                     evaluated_population.average_fitness(),
@@ -588,21 +658,34 @@ fn main() {
                     step.duration.fmt(),
                     step.processing_time.fmt(),
                 );
-                stdout().flush().unwrap();
                 write_gen(
                     &mut fitness_sheet,
                     step.iteration,
                     best_solution.solution.fitness,
                     *evaluated_population.average_fitness(),
                     *evaluated_population.lowest_fitness(),
+                    &best_solution.solution.genome.as_solution().parts,
                     evaluated_population.fitness_values(),
                 );
+                if stage_save {
+                    let count = UNTIL_NEXT_STAGE.load(Ordering::Relaxed);
+                    if count > 1000 {
+                        write_stage(
+                            &workbook,
+                            step.iteration,
+                            &best_solution.solution.genome.as_solution(),
+                        );
+                        UNTIL_NEXT_STAGE.store(0, Ordering::Relaxed);
+                    } else {
+                        UNTIL_NEXT_STAGE.fetch_add(1, Ordering::Relaxed);
+                    }
+                }
                 // println!("uniformalized_f: {}",best_solution.solution.genome.as_solution().uniformalized_f());
                 // dbg!(&best_solution.solution.genome.as_solution().xiko[0]);
             }
             Ok(SimResult::Final(step, processing_time, duration, stop_reason)) => {
                 let best_solution = step.result.best_solution;
-                println!("\n{}", stop_reason);
+                println!("{}", stop_reason);
                 println!(
                     "Final result after {}: generation: {}, \
                     best solution with fitness {} found in generation {}, processing_time: {}",
@@ -645,9 +728,6 @@ fn main() {
         eprintln!("{e}");
         process::exit(1);
     } else {
-        println!(
-            "Results saved in {}/{}.xlsx. Don't forget to check them out!",
-            output, uuid_
-        );
+        println!("结果存放在{}/{}.xlsx. 别忘了查看啊", output, uuid_);
     }
 }
