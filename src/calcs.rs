@@ -223,30 +223,34 @@ impl Calcs for Solution {
         match u {
             Stage::O => {
                 let route = self.get_route_of_k_in_stage_u(k, u);
-                let mut j0 = &route[0];
-                for j in route.iter() {
-                    if j != j0 {
-                        result += T[*j0][*j];
-                        j0 = j;
+                if route.len() > 0 {
+                    let mut j0 = &route[0];
+                    for j in route.iter() {
+                        if j != j0 {
+                            result += T[*j0][*j];
+                            j0 = j;
+                        }
+                        if *j == i {
+                            break;
+                        }
                     }
-                    if *j == i {
-                        break;
-                    }
-                }
 
-                T_O.fetch_max((result * 100f64) as usize, Ordering::Relaxed);
+                    T_O.fetch_max((result * 100f64) as usize, Ordering::Relaxed);
+                }
             }
             Stage::R => {
                 result += T_O.load(Ordering::Relaxed) as f64 / 100f64;
                 let route = self.get_route_of_k_in_stage_u(k, u);
-                let mut j0 = &route[0];
-                for j in route.iter() {
-                    if j != j0 {
-                        result += T[*j0][*j];
-                        j0 = j;
-                    }
-                    if *j == i {
-                        break;
+                if route.len() > 0 {
+                    let mut j0 = &route[0];
+                    for j in route.iter() {
+                        if j != j0 {
+                            result += T[*j0][*j];
+                            j0 = j;
+                        }
+                        if *j == i {
+                            break;
+                        }
                     }
                 }
             }
@@ -327,7 +331,7 @@ impl Calcs for Solution {
         let mut route = Vec::new();
         let from_i = |i: usize, route: &mut Vec<usize>| {
             let mut i = i;
-            'loop0: loop {
+            loop {
                 let mut found = false;
                 'loop1: for j in 0..NUM_CITIES {
                     match u {
