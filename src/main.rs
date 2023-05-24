@@ -26,10 +26,10 @@ mod example;
 #[cfg(test)]
 mod tests;
 
-const A_STEP: usize = 100;
+const A_STEP: usize = 1000;
 const NUM_CITIES: usize = 9;
 const NUM_VEHICLES: usize = 4;
-const HIGHEST_FITNESS: usize = 10_000;
+const HIGHEST_FITNESS: usize = 1_000_000;
 const TOTAL_LEN: usize = 2 * NUM_VEHICLES * NUM_CITIES + 2 * NUM_VEHICLES * NUM_CITIES * NUM_CITIES;
 const T: [[f64; NUM_CITIES]; NUM_CITIES] = [
     [0., 2.72, 0.70, 3.78, 1.27, 3.27, 1.13, 1.3, 1.93],
