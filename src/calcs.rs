@@ -5,8 +5,8 @@ use super::*;
 #[cfg(test)]
 mod tests;
 
-const WEIGHTS: [f64; 5] = [0.2; 5];
-// const WEIGHTS:[f64;2]=[0.5;2];
+// const WEIGHTS: [f64; 5] = [0.2; 5];
+const WEIGHTS: [f64; 5] = [0.1,0.1,0.35,0.1,0.35];
 
 static T_O: AtomicUsize = AtomicUsize::new(0);
 static SHOW_PARTS_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -19,8 +19,8 @@ fn max(num1: f64, num2: f64) -> f64 {
     }
 }
 
-fn demand_with_time_of_i(t: f64, i: usize) -> f64 {
-    DEMANDS[i] as f64 * (t).powf(1.15) / 1.43
+fn demand_with_time(t: f64) -> f64 {
+    t.powf(1.15) / 1.43
     // println!("demand with time {} of {}, base {}: {}", t,i,DEMANDS[i], result);
     // result
 }
@@ -117,7 +117,7 @@ impl Calcs for Solution {
         self.parts[4] = self.satisfaction_to_restriction_12();
         // dbg!(&parts);
         // if SHOW_PARTS_COUNT.load(Ordering::Relaxed)>5000{
-        //     dbg!(&parts);
+        //     dbg!(&self.parts);
         //     SHOW_PARTS_COUNT.store(0, Ordering::Relaxed);
         // } else{
         //     SHOW_PARTS_COUNT.fetch_add(1, Ordering::Relaxed);
@@ -146,7 +146,7 @@ impl Calcs for Solution {
                     - sum2)
                     .powi(2);
                 // dbg!(&delinquency);
-                result += (delinquency) / (90802250000f64.powi(2)) / 9f64;
+                result += (delinquency) / (2320200f64.powi(2)) / 9f64;
             }
         }
 
@@ -174,9 +174,8 @@ impl Calcs for Solution {
                     for j in 0..NUM_CITIES {
                         if self.yijko[k][j][i] {
                             result += DEMANDS[i] as f64
-                                * demand_with_time_of_i(
+                                * demand_with_time(
                                     self.time_cost_for_k_to_reach_i_in_stage_u(k, i, u),
-                                    i,
                                 );
                             break 'outer;
                         }
@@ -198,10 +197,9 @@ impl Calcs for Solution {
                         }
                         if self.yijkr[k][j][i] {
                             result += DEMANDS[i] as f64
-                                * demand_with_time_of_i(
+                                * demand_with_time(
                                     self.time_cost_for_k_to_reach_i_in_stage_u(k, i, u)
                                         - T_O.load(Ordering::Relaxed) as f64 / 100f64,
-                                    i,
                                 );
                             if count {
                                 break 'outer;
@@ -315,8 +313,8 @@ impl Calcs for Solution {
                     }
                 }
             }
-            result += (yin_o - yout_o).powi(2) / 60f64 / 18f64;
-            result += (yin_r - yout_r).powi(2) / 60f64 / 18f64;
+            result += (yin_o - yout_o).powi(2) / 70f64 / 18f64;
+            result += (yin_r - yout_r).powi(2) / 70f64 / 18f64;
         }
 
         if result > 1f64 {
