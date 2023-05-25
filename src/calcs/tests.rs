@@ -100,3 +100,30 @@ fn test_time_cost() {
         k, u, route, destination, time_cost
     );
 }
+
+#[test]
+fn test_restriction_11() {
+    let y: [[[bool; 9]; 9]; 4] = [[
+        [false, true, false, false, false, false, false, false, false],
+        [false, false, true, false, false, false, false, false, false],
+        [false, false, false, true, false, false, false, false, false],
+        [false, false, false, false, true, false, false, false, false],
+        [false, false, false, false, false, true, false, false, false],
+        [false, false, false, false, false, false, true, false, false],
+        [false, false, false, false, false, false, false, true, false],
+        [false, false, false, false, false, false, false, false, true],
+        [true, false, false, false, false, false, false, false, false],
+    ]; 4];
+    // let y = [[[true; 9]; 9]; 4];
+    let mut solution = Solution::random_new();
+    for k in 0..NUM_VEHICLES {
+        for i in 0..NUM_CITIES {
+            for j in 0..NUM_CITIES {
+                solution.yijko[k][i][j] = y[k][i][j];
+                solution.yijkr[k][i][j] = y[k][i][j];
+            }
+        }
+    }
+    let r11 = solution.satisfaction_to_restriction_11();
+    println!("{}", r11);
+}

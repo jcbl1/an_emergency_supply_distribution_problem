@@ -10,7 +10,7 @@ mod tests;
 
 static T_O: AtomicUsize = AtomicUsize::new(0);
 static SHOW_PARTS_COUNT: AtomicUsize = AtomicUsize::new(0);
-pub static mut WEIGHTS: [f64; 5] = [0.2; 5];
+pub static mut WEIGHTS: [f64; 6] = [0.1666; 6];
 
 fn max(num1: f64, num2: f64) -> f64 {
     if num1 > num2 {
@@ -44,6 +44,7 @@ pub trait Calcs {
     fn satisfaction_to_restriction_11(&self) -> f64;
     fn satisfaction_to_restriction_12(&self) -> f64;
     fn get_route_of_k_in_stage_u(&self, k: usize, u: &Stage) -> Vec<usize>;
+    fn satisfaction_to_route_circuit(&self) -> f64;
 }
 
 impl Calcs for Solution {
@@ -116,6 +117,7 @@ impl Calcs for Solution {
         self.parts[2] = self.satisfaction_to_restriction_8();
         self.parts[3] = self.satisfaction_to_restriction_11();
         self.parts[4] = self.satisfaction_to_restriction_12();
+        self.parts[5] = self.satisfaction_to_route_circuit();
         // dbg!(&parts);
         // if SHOW_PARTS_COUNT.load(Ordering::Relaxed)>5000{
         //     dbg!(&self.parts);
@@ -263,30 +265,64 @@ impl Calcs for Solution {
 
     fn satisfaction_to_restriction_11(&self) -> f64 {
         let mut result = 0f64;
-        for i in 0..NUM_CITIES {
-            let (mut delinquency_o, mut delinquency_r) = (0f64, 0f64);
-            for j in 0..NUM_CITIES {
-                for k in 0..NUM_VEHICLES {
-                    if self.yijko[k][j][i] {
-                        delinquency_o += 1f64;
-                    }
-                    if self.yijkr[k][j][i] {
-                        delinquency_r += 1f64;
-                    }
-                }
+        let mut city_counts_o = Vec::from([0usize; NUM_CITIES]);
+        let mut city_counts_r = Vec::from([0usize; NUM_CITIES]);
+        // println!("yijko: {:?}", self.yijko);
+        for k in 0..NUM_VEHICLES {
+            let mut route = self.get_route_of_k_in_stage_u(k, &Stage::O);
+            if route[0] == route[route.len() - 1] && route.len() > 1 {
+                route.pop();
             }
-            delinquency_o -= 1f64;
-            delinquency_r -= 1f64;
-            let delinquency_o = max(delinquency_o, 0f64).powi(2);
-            let delinquency_r = max(delinquency_r, 0f64).powi(2);
-            // dbg!(&delinquency_o,&delinquency_r);
-            let delinquency_o = delinquency_o / 450f64 / 18f64;
-            let delinquency_r = delinquency_r / 450f64 / 18f64;
-            // dbg!("after", &delinquency_o,&delinquency_r);
-            result += delinquency_o;
-            result += delinquency_r;
+            // println!("route of vehicle {} o: {:?}",k, route);
+            for city in route {
+                city_counts_o[city] += 1;
+            }
+            let mut route = self.get_route_of_k_in_stage_u(k, &Stage::R);
+            if route[0] == route[route.len() - 1] && route.len() > 1 {
+                route.pop();
+            }
+            // println!("route of vehicle {} r: {:?}", k,route);
+            for city in route {
+                city_counts_r[city] += 1;
+            }
         }
+        // println!("{:?}", city_counts_o);
+        // println!("{:?}", city_counts_r);
+        for i in 0..NUM_CITIES {
+            let discrepancy = city_counts_o[i] as f64 - 1f64;
+            let discrepancy = max(discrepancy as f64, 0f64).powi(2); // discrepancy 最大为9
+                                                                     // println!("{}", discrepancy);
+            result += discrepancy;
+            let discrepancy = city_counts_r[i] as f64 - 1f64;
+            let discrepancy = max(discrepancy as f64, 0f64).powi(2); // discrepancy 最大为9
+                                                                     // println!("{}", discrepancy);
+            result += discrepancy;
+        }
+        // for i in 0..NUM_CITIES {
+        //     let (mut delinquency_o, mut delinquency_r) = (0f64, 0f64);
+        //     for j in 0..NUM_CITIES {
+        //         for k in 0..NUM_VEHICLES {
+        //             if self.yijko[k][j][i] {
+        //                 delinquency_o += 1f64;
+        //             }
+        //             if self.yijkr[k][j][i] {
+        //                 delinquency_r += 1f64;
+        //             }
+        //         }
+        //     }
+        //     delinquency_o -= 1f64;
+        //     delinquency_r -= 1f64;
+        //     let delinquency_o = max(delinquency_o, 0f64).powi(2);
+        //     let delinquency_r = max(delinquency_r, 0f64).powi(2);
+        //     // dbg!(&delinquency_o,&delinquency_r);
+        //     let delinquency_o = delinquency_o / 450f64 / 18f64;
+        //     let delinquency_r = delinquency_r / 450f64 / 18f64;
+        //     // dbg!("after", &delinquency_o,&delinquency_r);
+        //     result += delinquency_o;
+        //     result += delinquency_r;
+        // }
 
+        result = result / 162f64;
         if result > 1f64 {
             panic!("约束11的目标值大于1了, result: {result}");
         }
@@ -344,11 +380,11 @@ impl Calcs for Solution {
                                         continue 'loop1;
                                     }
                                 }
-                                if i != j {
-                                    route.push(j);
-                                }
+                                route.push(j);
                                 i = j;
-                                found = true;
+                                if j != route[0] {
+                                    found = true;
+                                }
                                 break;
                             }
                         }
@@ -361,11 +397,11 @@ impl Calcs for Solution {
                                         continue 'loop1;
                                     }
                                 }
-                                if i != j {
-                                    route.push(j);
-                                }
+                                route.push(j);
                                 i = j;
-                                found = true;
+                                if j != route[0] {
+                                    found = true;
+                                }
                                 break;
                             }
                         }
@@ -400,6 +436,21 @@ impl Calcs for Solution {
         }
 
         route
+    }
+
+    fn satisfaction_to_route_circuit(&self) -> f64 {
+        let mut result = 0f64;
+        for k in 0..NUM_VEHICLES {
+            let route = self.get_route_of_k_in_stage_u(k, &Stage::O);
+            if route[0] != route[route.len() - 1] {
+                result += 1f64;
+            }
+            let route = self.get_route_of_k_in_stage_u(k, &Stage::R);
+            if route[0] != route[route.len() - 1] {
+                result += 1f64;
+            }
+        }
+        result / 8f64
     }
 }
 

@@ -230,7 +230,7 @@ impl AsPhenotype for Genome {
             xikr,
             yijko,
             yijkr,
-            parts: vec![0., 0., 0., 0., 0.],
+            parts: vec![0., 0., 0., 0., 0., 0.],
         };
         solution.uniformalized_f();
         solution
@@ -310,7 +310,7 @@ fn parse_matches() -> ArgMatches {
                 .short('w')
                 .long("weights")
                 .help("设置各部分权重")
-                .default_value("0.2,0.2,0.2,0.2,0.2"),
+                .default_value("0.16,0.16,0.16,0.16,0.16,0.16"),
         )
         .get_matches()
 }
@@ -321,21 +321,25 @@ fn main() {
     if debug_mode {
         dbg!("Processing in debug mode.");
     }
+    let mut len = 0;
     if let Some(weights) = matches.get_one::<String>("weights") {
+        unsafe {
+            len = WEIGHTS.len();
+        }
         let mut weights: Vec<_> = weights
             .split(',')
             .map(|w| w.parse::<f64>().expect("Error parsing weights"))
             .collect();
-        if weights.len() != 5 {
-            eprintln!("Error: 权值个数不为5");
+        if weights.len() != len {
+            eprintln!("Error: 权值个数不为{}", len);
             process::exit(1);
         }
         let sum = weights.iter().sum::<f64>();
-        for i in 0..5 {
+        for i in 0..len {
             weights[i] = weights[i] / sum;
         }
         unsafe {
-            for i in 0..5 {
+            for i in 0..len {
                 WEIGHTS[i] = weights[i];
             }
         }
@@ -378,7 +382,7 @@ fn main() {
     fitness_sheet
         .write_string(0, 3, "lowest_fitness", Some(&format_label))
         .expect("Error write_string");
-    for i in 0..5 {
+    for i in 0..len {
         fitness_sheet
             .write_string(
                 0,
@@ -389,7 +393,7 @@ fn main() {
             .expect("Error write_string");
     }
     fitness_sheet
-        .write_string(0, 9, "fitnesses", Some(&format_label))
+        .write_string(0, (4 + len) as u16, "fitnesses", Some(&format_label))
         .expect("Error write_string");
     let write_gen = |fitness_sheet: &mut Worksheet,
                      gen: u64,
@@ -417,14 +421,14 @@ fn main() {
         fitness_sheet
             .write_number(gen, 3, lowest_fitness, None)
             .expect("Error write_number");
-        for i in 0..5 {
+        for i in 0..len {
             fitness_sheet
                 .write_number(gen, (4 + i) as u16, parts[i], None)
                 .expect("Error write_number");
         }
-        for col in 9..(fitnesses.len() + 9) {
+        for col in (4 + len)..(fitnesses.len() + 4 + len) {
             fitness_sheet
-                .write_number(gen, col as u16, fitnesses[col - 9] as f64, None)
+                .write_number(gen, col as u16, fitnesses[col - 4 - len] as f64, None)
                 .expect("Error write_number");
         }
     };
