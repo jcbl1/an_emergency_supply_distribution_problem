@@ -127,3 +127,33 @@ fn test_restriction_11() {
     let r11 = solution.satisfaction_to_restriction_11();
     println!("{}", r11);
 }
+
+#[test]
+fn test_f1() {
+    let mut solution = Solution::random_new();
+    for k in 0..NUM_VEHICLES {
+        for i in 0..NUM_CITIES {
+            for j in 0..NUM_CITIES {
+                solution.yijko[k][i][j] = false;
+                solution.yijkr[k][i][j] = false;
+            }
+        }
+    }
+    let result = solution.f1();
+    println!("{}", result);
+}
+
+#[test]
+fn test_f2() {
+    let solution = Solution::random_new();
+    let result = solution.f2();
+    println!("{}", result);
+}
+
+#[test]
+fn test_delivered_to_i_in_stage_u() {
+    let solution = Solution::random_new();
+    println!("{}", solution.fmt());
+    let result = solution.delivered_to_i_in_stage_u(1, &Stage::O);
+    println!("{}", result);
+}

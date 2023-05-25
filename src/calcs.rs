@@ -59,11 +59,12 @@ impl Calcs for Solution {
             }
         }
 
-        MAX_F1.fetch_max(result as isize, Ordering::Relaxed);
-        MIN_F1.fetch_min(result as isize, Ordering::Relaxed);
+        // MAX_F1.fetch_max(result as isize, Ordering::Relaxed);
+        // MIN_F1.fetch_min(result as isize, Ordering::Relaxed);
 
         result
     }
+    //TODO: 验证f2()的正确性
     fn f2(&self) -> f64 {
         let mut result = 0f64;
         for i in 0..NUM_CITIES {
@@ -94,10 +95,37 @@ impl Calcs for Solution {
         let mut sum = 0f64;
 
         for k in 0..NUM_VEHICLES {
-            sum += match u {
-                Stage::O => self.xiko[k][i] as f64,
-                Stage::R => self.xikr[k][i] as f64,
+            match u {
+                Stage::O => {
+                    let mut route = self.get_route_of_k_in_stage_u(k, u);
+                    if route.len() > 1 {
+                        route.pop();
+                    }
+                    for city in route {
+                        if city == i {
+                            let addition = self.xiko[k][i] as f64;
+                            sum += addition;
+                            break;
+                        }
+                    }
+                }
+                Stage::R => {
+                    let mut route = self.get_route_of_k_in_stage_u(k, u);
+                    if route.len() > 1 {
+                        route.pop();
+                    }
+                    for city in route {
+                        if city == i {
+                            sum += self.xikr[k][i] as f64;
+                            break;
+                        }
+                    }
+                }
             }
+            // sum += match u {
+            //     Stage::O => self.xiko[k][i] as f64,
+            //     Stage::R => self.xikr[k][i] as f64,
+            // }
         }
 
         sum
@@ -106,8 +134,10 @@ impl Calcs for Solution {
     fn uniformalized_f(&mut self) -> f64 {
         let mut result = 0f64;
         let (max_f1, min_f1, max_f2, min_f2) = (
-            MAX_F1.load(Ordering::Relaxed) as f64,
-            MIN_F1.load(Ordering::Relaxed) as f64,
+            // MAX_F1.load(Ordering::Relaxed) as f64,
+            // MIN_F1.load(Ordering::Relaxed) as f64,
+            MAX_F1,
+            MIN_F1,
             MAX_F2.load(Ordering::Relaxed) as f64,
             MIN_F2.load(Ordering::Relaxed) as f64,
         );

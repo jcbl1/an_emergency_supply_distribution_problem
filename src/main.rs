@@ -48,9 +48,11 @@ const DEMANDS: [usize; NUM_CITIES] = [
 const ALPHA: [f64; NUM_CITIES] = [1.; NUM_CITIES];
 const BETA: [f64; NUM_CITIES] = [1.; NUM_CITIES];
 // static MAX_F1: AtomicIsize = AtomicIsize::new((f64::NEG_INFINITY) as isize);
-static MAX_F1: AtomicIsize = AtomicIsize::new(800isize);
+// static MAX_F1: AtomicIsize = AtomicIsize::new(800isize);
+const MAX_F1: f64 = 1475f64;
 // static MIN_F1: AtomicIsize = AtomicIsize::new((f64::INFINITY) as isize);
-static MIN_F1: AtomicIsize = AtomicIsize::new(400isize);
+// static MIN_F1: AtomicIsize = AtomicIsize::new(400isize);
+const MIN_F1: f64 = 0f64;
 // static MAX_F2: AtomicIsize = AtomicIsize::new((f64::NEG_INFINITY) as isize);
 static MAX_F2: AtomicIsize = AtomicIsize::new(7_000_000isize);
 // static MIN_F2: AtomicIsize = AtomicIsize::new((f64::INFINITY) as isize);
@@ -102,21 +104,22 @@ impl Display for Solution {
             result.push_str(&format!("车辆{}：\n", k + 1));
 
             result.push_str("  配送：\n");
-            let mut distribution: Vec<usize> = Vec::new();
-            let mut set_off = false;
-            for i in 0..NUM_CITIES {
-                for j in 0..NUM_CITIES {
-                    if self.yijko[k][i][j] {
-                        // println!("[{}][{}][{}],{}",k,i,j,set_off);
-                        if !set_off {
-                            distribution.push(self.xiko[k][i]);
-                            set_off = true;
-                        }
-                        distribution.push(self.xiko[k][j]);
-                        break;
-                    }
-                }
-            }
+            let distribution = &self.xiko[k];
+            // let mut distribution: Vec<usize> = Vec::new();
+            // let mut set_off = false;
+            // for i in 0..NUM_CITIES {
+            //     for j in 0..NUM_CITIES {
+            //         if self.yijko[k][i][j] {
+            //             // println!("[{}][{}][{}],{}",k,i,j,set_off);
+            //             if !set_off {
+            //                 distribution.push(self.xiko[k][i]);
+            //                 set_off = true;
+            //             }
+            //             distribution.push(self.xiko[k][j]);
+            //             break;
+            //         }
+            //     }
+            // }
             result.push_str(&format!("{:?}\n", distribution));
 
             result.push_str("  路径：\n");
@@ -133,21 +136,22 @@ impl Display for Solution {
             result.push_str(&format!("车辆{}：\n", k + 1));
 
             result.push_str("  配送：\n");
-            let mut distribution: Vec<usize> = Vec::new();
-            let mut set_off = false;
-            for i in 0..NUM_CITIES {
-                for j in 0..NUM_CITIES {
-                    if self.yijkr[k][i][j] {
-                        // println!("[{}][{}][{}],{}",k,i,j,set_off);
-                        if !set_off {
-                            distribution.push(self.xikr[k][i]);
-                            set_off = true;
-                        }
-                        distribution.push(self.xikr[k][j]);
-                        break;
-                    }
-                }
-            }
+            let distribution = &self.xikr[k];
+            // let mut distribution: Vec<usize> = Vec::new();
+            // let mut set_off = false;
+            // for i in 0..NUM_CITIES {
+            //     for j in 0..NUM_CITIES {
+            //         if self.yijkr[k][i][j] {
+            //             // println!("[{}][{}][{}],{}",k,i,j,set_off);
+            //             if !set_off {
+            //                 distribution.push(self.xikr[k][i]);
+            //                 set_off = true;
+            //             }
+            //             distribution.push(self.xikr[k][j]);
+            //             break;
+            //         }
+            //     }
+            // }
             result.push_str(&format!("{:?}\n", distribution));
 
             result.push_str("  路径：\n");
