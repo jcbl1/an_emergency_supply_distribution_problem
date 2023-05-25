@@ -149,7 +149,7 @@ impl Calcs for Solution {
                     - sum2)
                     .powi(2);
                 // dbg!(&delinquency);
-                result += (delinquency) / (2320200f64.powi(2)) / 9f64;
+                result += (delinquency) / (2720200f64.powi(2)) / 9f64;
             }
         }
 
