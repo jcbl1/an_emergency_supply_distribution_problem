@@ -4,15 +4,87 @@ use super::*;
 
 #[test]
 fn test_gen_route() {
-    let solution = Solution::random_new();
-    let result = solution.get_route_of_k_in_stage_u(0, &Stage::O);
+    let y: [[[bool; 9]; 9]; 4] = [
+        [
+            [false, false, true, false, false, false, false, false, false],
+            [false; 9],
+            [false; 9],
+            [false, true, false, true, false, false, false, false, false],
+            [false, true, false, false, false, true, true, false, false],
+            [false, false, false, false, false, true, false, true, false],
+            [false, false, false, false, true, false, false, false, true],
+            [false, false, false, false, true, false, false, true, false],
+            [false, false, false, true, false, false, false, false, false],
+        ],
+        [
+            [false, false, false, false, false, false, false, true, false],
+            [false, false, false, false, false, false, false, false, true],
+            [false, false, false, false, true, false, false, false, false],
+            [false, false, false, false, false, true, false, false, false],
+            [true, false, false, false, false, false, false, false, false],
+            [
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [false, false, true, false, false, false, false, false, false],
+            [true, false, false, false, false, false, false, false, false],
+        ],
+        [
+            [
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [false, false, false, true, false, false, true, true, false],
+            [true, true, true, false, false, true, false, false, false],
+            [
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [false, false, true, false, false, true, false, true, false],
+            [false, true, false, false, false, false, true, true, false],
+            [false, false, false, true, false, false, false, false, false],
+        ],
+        [
+            [
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [false, false, true, false, false, false, false, false, false],
+            [false, false, false, false, false, true, false, false, false],
+            [false, false, false, false, false, false, true, false, false],
+            [false, false, false, false, false, true, false, false, false],
+            [false, false, false, false, true, false, false, false, false],
+            [
+                false, false, false, false, false, false, false, false, false,
+            ],
+            [false, true, false, false, false, false, false, false, true],
+        ],
+    ];
+    let mut solution = Solution::random_new();
+    for k in 0..NUM_VEHICLES {
+        for i in 0..NUM_CITIES {
+            for j in 0..NUM_CITIES {
+                solution.yijko[k][i][j] = y[k][i][j];
+            }
+        }
+    }
+    let target: Vec<Vec<usize>> = vec![vec![0, 2], vec![0, 7, 2, 4, 0], vec![2, 3, 0], vec![3, 5]];
+    for k in 0..NUM_VEHICLES {
+        let result = solution.get_route_of_k_in_stage_u(k, &Stage::O);
+        assert_eq!(result, target[k]);
+    }
     for i in 0..NUM_CITIES {
         println!("{:?}", solution.yijko[0][i]);
     }
-    // println!("{:?}",solution.yijko[0]);
-    println!("{:?}", result);
-    // dbg!(&solution.yijko[0]);
-    // dbg!(&result);
+    // println!("{:?}", result);
 }
 
 #[test]
@@ -27,4 +99,61 @@ fn test_time_cost() {
         "Route of vehicle {} in stage {:?}: {:?}, time_cost to reach {}: {}",
         k, u, route, destination, time_cost
     );
+}
+
+#[test]
+fn test_restriction_11() {
+    let y: [[[bool; 9]; 9]; 4] = [[
+        [false, true, false, false, false, false, false, false, false],
+        [false, false, true, false, false, false, false, false, false],
+        [false, false, false, true, false, false, false, false, false],
+        [false, false, false, false, true, false, false, false, false],
+        [false, false, false, false, false, true, false, false, false],
+        [false, false, false, false, false, false, true, false, false],
+        [false, false, false, false, false, false, false, true, false],
+        [false, false, false, false, false, false, false, false, true],
+        [true, false, false, false, false, false, false, false, false],
+    ]; 4];
+    // let y = [[[true; 9]; 9]; 4];
+    let mut solution = Solution::random_new();
+    for k in 0..NUM_VEHICLES {
+        for i in 0..NUM_CITIES {
+            for j in 0..NUM_CITIES {
+                solution.yijko[k][i][j] = y[k][i][j];
+                solution.yijkr[k][i][j] = y[k][i][j];
+            }
+        }
+    }
+    let r11 = solution.satisfaction_to_restriction_11();
+    println!("{}", r11);
+}
+
+#[test]
+fn test_f1() {
+    let mut solution = Solution::random_new();
+    for k in 0..NUM_VEHICLES {
+        for i in 0..NUM_CITIES {
+            for j in 0..NUM_CITIES {
+                solution.yijko[k][i][j] = false;
+                solution.yijkr[k][i][j] = false;
+            }
+        }
+    }
+    let result = solution.f1();
+    println!("{}", result);
+}
+
+#[test]
+fn test_f2() {
+    let solution = Solution::random_new();
+    let result = solution.f2();
+    println!("{}", result);
+}
+
+#[test]
+fn test_delivered_to_i_in_stage_u() {
+    let solution = Solution::random_new();
+    println!("{}", solution.fmt());
+    let result = solution.delivered_to_i_in_stage_u(1, &Stage::O);
+    println!("{}", result);
 }
