@@ -6,10 +6,11 @@ use super::*;
 mod tests;
 
 // const WEIGHTS: [f64; 5] = [0.2; 5];
-const WEIGHTS: [f64; 5] = [0.1,0.1,0.35,0.1,0.35];
+// const WEIGHTS: [f64; 5] = [0.1,0.1,0.35,0.1,0.35];
 
 static T_O: AtomicUsize = AtomicUsize::new(0);
 static SHOW_PARTS_COUNT: AtomicUsize = AtomicUsize::new(0);
+pub static mut WEIGHTS: [f64; 5] = [0.2; 5];
 
 fn max(num1: f64, num2: f64) -> f64 {
     if num1 > num2 {
@@ -124,7 +125,9 @@ impl Calcs for Solution {
         // }
         // thread::sleep(Duration::from_secs(1));
         for (i, part) in self.parts.iter().enumerate() {
-            result += WEIGHTS[i] * part;
+            unsafe {
+                result += WEIGHTS[i] * part;
+            }
         }
         if result <= 0f64 {
             panic!("uniformalized_f is less than 0. parts: {:?}", self.parts);

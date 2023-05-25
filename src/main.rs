@@ -305,6 +305,13 @@ fn parse_matches() -> ArgMatches {
                 .help("是否需要记录阶段性结果")
                 .action(ArgAction::SetTrue),
         )
+        .arg(
+            Arg::new("weights")
+                .short('w')
+                .long("weights")
+                .help("设置各部分权重")
+                .default_value("0.2,0.2,0.2,0.2,0.2"),
+        )
         .get_matches()
 }
 
@@ -313,6 +320,30 @@ fn main() {
     let debug_mode = matches.get_flag("debug");
     if debug_mode {
         dbg!("Processing in debug mode.");
+    }
+    if let Some(weights) = matches.get_one::<String>("weights") {
+        let mut weights: Vec<_> = weights
+            .split(',')
+            .map(|w| w.parse::<f64>().expect("Error parsing weights"))
+            .collect();
+        if weights.len() != 5 {
+            eprintln!("Error: 权值个数不为5");
+            process::exit(1);
+        }
+        let sum = weights.iter().sum::<f64>();
+        for i in 0..5 {
+            weights[i] = weights[i] / sum;
+        }
+        unsafe {
+            for i in 0..5 {
+                WEIGHTS[i] = weights[i];
+            }
+        }
+        if debug_mode {
+            unsafe {
+                dbg!(&WEIGHTS);
+            }
+        }
     }
     let output = match matches.get_one::<String>("output") {
         Some(output) => output,
