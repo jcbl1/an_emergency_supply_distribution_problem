@@ -336,26 +336,34 @@ impl Calcs for Solution {
                 'loop1: for j in 0..NUM_CITIES {
                     match u {
                         Stage::O => {
-                            if self.yijko[k][i][j] {
-                                for existed in route.iter() {
+                            if self.yijko[k][i][j] && i != j {
+                                let mut iter = route.iter();
+                                iter.next();
+                                while let Some(existed) = iter.next() {
                                     if j == *existed {
                                         continue 'loop1;
                                     }
                                 }
-                                route.push(j);
+                                if i != j {
+                                    route.push(j);
+                                }
                                 i = j;
                                 found = true;
                                 break;
                             }
                         }
                         Stage::R => {
-                            if self.yijkr[k][i][j] {
-                                for existed in route.iter() {
+                            if self.yijkr[k][i][j] && i != j {
+                                let mut iter = route.iter();
+                                iter.next();
+                                while let Some(existed) = iter.next() {
                                     if j == *existed {
                                         continue 'loop1;
                                     }
                                 }
-                                route.push(j);
+                                if i != j {
+                                    route.push(j);
+                                }
                                 i = j;
                                 found = true;
                                 break;
@@ -372,7 +380,7 @@ impl Calcs for Solution {
             for j in 1..NUM_CITIES {
                 match u {
                     Stage::O => {
-                        if self.yijko[k][i][j] {
+                        if self.yijko[k][i][j] && i != j {
                             route.push(i);
                             route.push(j);
                             from_i(j, &mut route);
@@ -380,7 +388,7 @@ impl Calcs for Solution {
                         }
                     }
                     Stage::R => {
-                        if self.yijkr[k][i][j] {
+                        if self.yijkr[k][i][j] && i != j {
                             route.push(i);
                             route.push(j);
                             from_i(j, &mut route);
