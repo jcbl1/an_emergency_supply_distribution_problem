@@ -154,6 +154,9 @@ fn test_f2() {
 fn test_delivered_to_i_in_stage_u() {
     let solution = Solution::random_new();
     println!("{}", solution.fmt());
-    let result = solution.delivered_to_i_in_stage_u(1, &Stage::O);
-    println!("{}", result);
+    for i in 0..NUM_CITIES {
+        let result = solution.delivered_to_i_in_stage_u(i, &Stage::R);
+        print!("{},", result);
+    }
+    println!();
 }
