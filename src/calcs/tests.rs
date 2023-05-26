@@ -225,16 +225,16 @@ fn test_r8() {
     println!("max: {}, min: {}", max, min);
 }
 
-#[test]
-fn test_update_totr() {
-    for i in 0..NUM_CITIES {
-        for j in 0..NUM_CITIES {
-            update_totr(&vec![i, j], &Stage::O);
-            let t_o = T_O.load(Ordering::Relaxed) as f64 / 100f64;
-            println!("route: {:?},T_O: {}", vec![i, j], t_o);
-        }
-    }
-}
+// #[test]
+// fn test_update_totr() {
+//     for i in 0..NUM_CITIES {
+//         for j in 0..NUM_CITIES {
+//             update_totr(&vec![i, j], &Stage::O);
+//             let t_o = T_O.load(Ordering::Relaxed) as f64 / 100f64;
+//             println!("route: {:?},T_O: {}", vec![i, j], t_o);
+//         }
+//     }
+// }
 
 #[test]
 fn test_demand() {
@@ -243,7 +243,5 @@ fn test_demand() {
     let u = Stage::O;
     let result = solution.demand_of_i_in_stage_u(i, &u);
     println!("demand of {} in stage {:?}: {}", i, u, result);
-    let t_o = T_O.load(Ordering::Relaxed) as f64 / 100f64;
-    let t_r = T_R.load(Ordering::Relaxed) as f64 / 100f64;
-    println!("T_O: {}, T_R: {}", t_o, t_r);
+    println!("T_O: {}, T_R: {}", solution.totr.0, solution.totr.1);
 }

@@ -75,13 +75,15 @@ struct Parameter {
 
 impl Default for Parameter {
     fn default() -> Self {
+        let len = 2 * NUM_VEHICLES * NUM_CITIES + 2 * NUM_VEHICLES * NUM_CITIES * NUM_CITIES;
         Parameter {
-            population_size: 200,
-            generation_limit: 20000,
+            // population_size: 200,
+            population_size: (100. * (len as f64).ln()) as usize,
+            generation_limit: 400,
             num_individuals_per_parents: 2,
             selection_ratio: 0.7,
-            num_crossover_points: 300,
-            mutation_rate: 0.09,
+            num_crossover_points: len / 6,
+            mutation_rate: 0.05 / (len as f64).ln(),
             reinsertion_ratio: 0.7,
         }
     }
@@ -284,21 +286,23 @@ fn parse_matches() -> ArgMatches {
                 .short('o')
                 .long("output")
                 .help("设置存放xlsx文件的文件夹")
-                .default_value("./output"),
+                .default_value("./output")
+                .action(ArgAction::Set),
         )
         .arg(
             Arg::new("generation_limit")
                 .short('g')
                 .long("generation-limit")
                 .help("最大代数")
-                .default_value("200"),
+                .default_value("400")
+                .action(ArgAction::Set),
         )
         .arg(
             Arg::new("population_size")
                 .short('p')
                 .long("population-size")
-                .help("种群规模")
-                .default_value("200"),
+                .help("种群规模，默认值为100 * ln(NUM_OF_BYTES)")
+                .action(ArgAction::Set),
         )
         .arg(
             Arg::new("debug")
@@ -318,7 +322,8 @@ fn parse_matches() -> ArgMatches {
                 .short('w')
                 .long("weights")
                 .help("设置各部分权重")
-                .default_value("0.16,0.16,0.16,0.16,0.16,0.16"),
+                .default_value("0.16,0.16,0.16,0.16,0.16,0.16")
+                .action(ArgAction::Set),
         )
         .get_matches()
 }
@@ -647,9 +652,7 @@ fn main() {
             ..params
         };
     }
-    if debug_mode {
-        dbg!(&params);
-    }
+    println!("参数：{:#?}", params);
 
     let stage_save = matches.get_flag("stage_save");
 
