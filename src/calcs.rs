@@ -54,14 +54,15 @@ impl Calcs for Solution {
     //TODO: 修改，简化，考虑最短化时长即为最短化两阶段最大时长之和
     fn f1(&self) -> f64 {
         let mut result = 0.;
-        for k in 0..NUM_VEHICLES {
-            for j in 0..NUM_CITIES {
-                for i in 0..NUM_CITIES {
-                    result += if self.yijko[k][j][i] { T[j][i] } else { 0. };
-                    result += if self.yijkr[k][j][i] { T[j][i] } else { 0. };
-                }
-            }
-        }
+        result += self.totr.0 + self.totr.1;
+        // for k in 0..NUM_VEHICLES {
+        //     for j in 0..NUM_CITIES {
+        //         for i in 0..NUM_CITIES {
+        //             result += if self.yijko[k][j][i] { T[j][i] } else { 0. };
+        //             result += if self.yijkr[k][j][i] { T[j][i] } else { 0. };
+        //         }
+        //     }
+        // }
 
         // MAX_F1.fetch_max(result as isize, Ordering::Relaxed);
         // MIN_F1.fetch_min(result as isize, Ordering::Relaxed);
