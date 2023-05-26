@@ -260,20 +260,24 @@ impl Calcs for Solution {
         // println!("yijko: {:?}", self.yijko);
         for k in 0..NUM_VEHICLES {
             let mut route = self.get_route_of_k_in_stage_u(k, &Stage::O);
-            if route[0] == route[route.len() - 1] && route.len() > 1 {
-                route.pop();
-            }
-            // println!("route of vehicle {} o: {:?}",k, route);
-            for city in route {
-                city_counts_o[city] += 1;
+            if route.len() != 0 {
+                if route[0] == route[route.len() - 1] && route.len() > 1 {
+                    route.pop();
+                }
+                // println!("route of vehicle {} o: {:?}",k, route);
+                for city in route {
+                    city_counts_o[city] += 1;
+                }
             }
             let mut route = self.get_route_of_k_in_stage_u(k, &Stage::R);
-            if route[0] == route[route.len() - 1] && route.len() > 1 {
-                route.pop();
-            }
-            // println!("route of vehicle {} r: {:?}", k,route);
-            for city in route {
-                city_counts_r[city] += 1;
+            if route.len() != 0 {
+                if route[0] == route[route.len() - 1] && route.len() > 1 {
+                    route.pop();
+                }
+                // println!("route of vehicle {} r: {:?}", k,route);
+                for city in route {
+                    city_counts_r[city] += 1;
+                }
             }
         }
         // println!("{:?}", city_counts_o);
