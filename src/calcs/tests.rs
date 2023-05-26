@@ -160,3 +160,40 @@ fn test_delivered_to_i_in_stage_u() {
     }
     println!();
 }
+
+#[test]
+fn test_utility() {
+    let solution = Solution::random_new();
+    let u = Stage::O;
+    for i in 0..NUM_CITIES {
+        // for i in 0..1{
+        let result = solution.utility_of_i_in_stage_u(i, &u);
+        let xi = solution.delivered_to_i_in_stage_u(i, &u);
+        println!("U = {} - sum1/8 - sum2/8 = {}", xi, result);
+        // print!("sum1 = ");
+        // for j in 0..NUM_CITIES{
+        //     print!("max({}-{},0)",solution.delivered_to_i_in_stage_u(j, &u),xi);
+        //     if j<NUM_CITIES-1{
+        //         print!(" + ")
+        //     }
+        // }
+        // print!("\nsum2 = ");
+        // for j in 0..NUM_CITIES{
+        //     print!("max({}-{},0)",xi,solution.delivered_to_i_in_stage_u(j, &u));
+        //     if j <NUM_CITIES-1{
+        //         print!(" + ");
+        //     }else{
+        //         println!();
+        //     }
+        // }
+    }
+}
+
+#[test]
+fn find_max_min_of_f2() {
+    let (max, min) = (0f64, 0f64);
+    loop {
+        let solution = Solution::random_new();
+        todo!();
+    }
+}

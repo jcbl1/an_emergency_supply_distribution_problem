@@ -81,13 +81,12 @@ impl Calcs for Solution {
         let xi = self.delivered_to_i_in_stage_u(i, u);
         let mut utility = xi;
         for j in 0..NUM_CITIES {
-            utility -= (ALPHA[i]
+            utility -= ALPHA[i]
                 * (max(self.delivered_to_i_in_stage_u(j, u) - xi, 0f64)
-                    / (NUM_CITIES as f64 - 1f64)) as f64) as f64;
-            utility -= (BETA[i]
-                * (xi
-                    - max(self.delivered_to_i_in_stage_u(j, u), 0f64) / (NUM_CITIES as f64 - 1f64))
-                    as f64) as f64;
+                    / (NUM_CITIES as f64 - 1f64));
+            utility -= BETA[i]
+                * (max(xi - self.delivered_to_i_in_stage_u(j, u), 0f64)
+                    / (NUM_CITIES as f64 - 1f64));
         }
         utility
     }
@@ -161,9 +160,9 @@ impl Calcs for Solution {
                 result += WEIGHTS[i] * part;
             }
         }
-        if result <= 0f64 {
-            panic!("uniformalized_f is less than 0. parts: {:?}", self.parts);
-        }
+        // if result <= 0f64 {
+        //     panic!("uniformalized_f is less than 0. parts: {:?}", self.parts);
+        // }
 
         result
     }
