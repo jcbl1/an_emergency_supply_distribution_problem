@@ -26,7 +26,7 @@ mod example;
 #[cfg(test)]
 mod tests;
 
-const A_STEP: usize = 1000;
+const A_STEP: usize = 4000;
 const NUM_CITIES: usize = 9;
 const NUM_VEHICLES: usize = 4;
 const HIGHEST_FITNESS: usize = 1_000_000;
@@ -42,6 +42,7 @@ const T: [[f64; NUM_CITIES]; NUM_CITIES] = [
     [1.3, 1.32, 1.57, 4.25, 2.03, 4.77, 1.8, 0., 2.17],
     [1.93, 3.42, 1.68, 2.32, 1.15, 3.08, 0.82, 2.17, 0.],
 ];
+// 最长路线：3->1->5->7->8->0->4->2->6->3；总时长27.1
 const DEMANDS: [usize; NUM_CITIES] = [
     37209, 34583, 33075, 32145, 26916, 15453, 13476, 10560, 10006,
 ];
@@ -57,6 +58,7 @@ const MIN_F1: f64 = 0f64;
 static MAX_F2: AtomicIsize = AtomicIsize::new(1_938_000isize);
 // static MIN_F2: AtomicIsize = AtomicIsize::new((f64::INFINITY) as isize);
 static MIN_F2: AtomicIsize = AtomicIsize::new(-1_490_000isize);
+static MAX_R8: AtomicUsize = AtomicUsize::new(1721424397249);
 
 static UNTIL_NEXT_STAGE: AtomicUsize = AtomicUsize::new(0);
 
@@ -92,6 +94,7 @@ struct Solution {
     yijko: Vec<Vec<Vec<bool>>>,
     yijkr: Vec<Vec<Vec<bool>>>,
     parts: Vec<f64>,
+    totr: (f64, f64),
 }
 
 impl Display for Solution {
@@ -235,6 +238,7 @@ impl AsPhenotype for Genome {
             yijko,
             yijkr,
             parts: vec![0., 0., 0., 0., 0., 0.],
+            totr: (0., 0.),
         };
         solution.uniformalized_f();
         solution

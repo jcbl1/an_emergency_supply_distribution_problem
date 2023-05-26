@@ -76,6 +76,7 @@ fn max_f1() {
         yijko,
         yijkr,
         parts: Vec::from([0.; 5]),
+        totr: (0., 0.),
     };
     let max = sol.f1();
     assert_eq!(max, 123f64);

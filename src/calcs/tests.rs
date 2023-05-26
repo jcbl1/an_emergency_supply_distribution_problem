@@ -87,19 +87,19 @@ fn test_gen_route() {
     // println!("{:?}", result);
 }
 
-#[test]
-fn test_time_cost() {
-    let solution = Solution::random_new();
-    let k = 1usize;
-    let u = Stage::R;
-    let destination = 6usize;
-    let route = solution.get_route_of_k_in_stage_u(k, &u);
-    let time_cost = solution.time_cost_for_k_to_reach_i_in_stage_u(k, destination, &u);
-    println!(
-        "Route of vehicle {} in stage {:?}: {:?}, time_cost to reach {}: {}",
-        k, u, route, destination, time_cost
-    );
-}
+// #[test]
+// fn test_time_cost() {
+//     let solution = Solution::random_new();
+//     let k = 1usize;
+//     let u = Stage::R;
+//     let destination = 6usize;
+//     let route = solution.get_route_of_k_in_stage_u(k, &u);
+//     let time_cost = solution.time_cost_for_k_to_reach_i_in_stage_u(k, destination, &u);
+//     println!(
+//         "Route of vehicle {} in stage {:?}: {:?}, time_cost to reach {}: {}",
+//         k, u, route, destination, time_cost
+//     );
+// }
 
 #[test]
 fn test_restriction_11() {
@@ -206,4 +206,44 @@ fn find_max_min_of_f2() {
         }
     }
     println!("max: {}, min: {}", max_f2, min_f2);
+}
+
+#[test]
+fn test_r8() {
+    let (mut max, mut min) = (0f64, 0f64);
+    let iter_limit = 1000;
+    for _ in 0..iter_limit {
+        let solution = Solution::random_new();
+        let result = solution.satisfaction_to_restriction_8();
+        if result > max {
+            max = result;
+        }
+        if result < min {
+            min = result;
+        }
+    }
+    println!("max: {}, min: {}", max, min);
+}
+
+#[test]
+fn test_update_totr() {
+    for i in 0..NUM_CITIES {
+        for j in 0..NUM_CITIES {
+            update_totr(&vec![i, j], &Stage::O);
+            let t_o = T_O.load(Ordering::Relaxed) as f64 / 100f64;
+            println!("route: {:?},T_O: {}", vec![i, j], t_o);
+        }
+    }
+}
+
+#[test]
+fn test_demand() {
+    let solution = Solution::random_new();
+    let i = 0;
+    let u = Stage::O;
+    let result = solution.demand_of_i_in_stage_u(i, &u);
+    println!("demand of {} in stage {:?}: {}", i, u, result);
+    let t_o = T_O.load(Ordering::Relaxed) as f64 / 100f64;
+    let t_r = T_R.load(Ordering::Relaxed) as f64 / 100f64;
+    println!("T_O: {}, T_R: {}", t_o, t_r);
 }
