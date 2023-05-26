@@ -437,12 +437,16 @@ impl Calcs for Solution {
         let mut result = 0f64;
         for k in 0..NUM_VEHICLES {
             let route = self.get_route_of_k_in_stage_u(k, &Stage::O);
-            if route[0] != route[route.len() - 1] {
-                result += 1f64;
+            if route.len() > 0 {
+                if route[0] != route[route.len() - 1] {
+                    result += 1f64;
+                }
             }
             let route = self.get_route_of_k_in_stage_u(k, &Stage::R);
-            if route[0] != route[route.len() - 1] {
-                result += 1f64;
+            if route.len() > 0 {
+                if route[0] != route[route.len() - 1] {
+                    result += 1f64;
+                }
             }
         }
         result / 8f64
