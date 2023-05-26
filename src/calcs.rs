@@ -98,7 +98,7 @@ impl Calcs for Solution {
             match u {
                 Stage::O => {
                     let mut route = self.get_route_of_k_in_stage_u(k, u);
-                    if route.len() > 1 {
+                    if route.len() > 1 && route[0] == route[route.len() - 1] {
                         route.pop();
                     }
                     for city in route {
@@ -111,7 +111,7 @@ impl Calcs for Solution {
                 }
                 Stage::R => {
                     let mut route = self.get_route_of_k_in_stage_u(k, u);
-                    if route.len() > 1 {
+                    if route.len() > 1 && route[0] == route[route.len() - 1] {
                         route.pop();
                     }
                     for city in route {
