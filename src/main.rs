@@ -54,9 +54,9 @@ const MAX_F1: f64 = 1475f64;
 // static MIN_F1: AtomicIsize = AtomicIsize::new(400isize);
 const MIN_F1: f64 = 0f64;
 // static MAX_F2: AtomicIsize = AtomicIsize::new((f64::NEG_INFINITY) as isize);
-static MAX_F2: AtomicIsize = AtomicIsize::new(7_000_000isize);
+static MAX_F2: AtomicIsize = AtomicIsize::new(1_938_000isize);
 // static MIN_F2: AtomicIsize = AtomicIsize::new((f64::INFINITY) as isize);
-static MIN_F2: AtomicIsize = AtomicIsize::new(5_000_000isize);
+static MIN_F2: AtomicIsize = AtomicIsize::new(-1_490_000isize);
 
 static UNTIL_NEXT_STAGE: AtomicUsize = AtomicUsize::new(0);
 

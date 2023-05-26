@@ -191,9 +191,19 @@ fn test_utility() {
 
 #[test]
 fn find_max_min_of_f2() {
-    let (max, min) = (0f64, 0f64);
-    loop {
+    let (mut max_f2, mut min_f2) = (0f64, 0f64);
+    let iter_limit = 1000;
+    for _ in 0..iter_limit {
         let solution = Solution::random_new();
-        todo!();
+        for i in 0..NUM_CITIES {
+            let result = solution.f2();
+            if result > max_f2 {
+                max_f2 = result;
+            }
+            if result < min_f2 {
+                min_f2 = result;
+            }
+        }
     }
+    println!("max: {}, min: {}", max_f2, min_f2);
 }

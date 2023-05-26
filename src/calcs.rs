@@ -48,6 +48,7 @@ pub trait Calcs {
 }
 
 impl Calcs for Solution {
+    //TODO: 修改，简化，考虑最短化时长即为最短化两阶段最大时长之和
     fn f1(&self) -> f64 {
         let mut result = 0.;
         for k in 0..NUM_VEHICLES {
@@ -64,7 +65,7 @@ impl Calcs for Solution {
 
         result
     }
-    //TODO: 验证f2()的正确性
+    //DONE: 验证f2()的正确性
     fn f2(&self) -> f64 {
         let mut result = 0f64;
         for i in 0..NUM_CITIES {
@@ -90,6 +91,7 @@ impl Calcs for Solution {
         }
         utility
     }
+    //DONE: 验证
     fn delivered_to_i_in_stage_u(&self, i: usize, u: &Stage) -> f64 {
         let mut sum = 0f64;
 
@@ -154,19 +156,20 @@ impl Calcs for Solution {
         // } else{
         //     SHOW_PARTS_COUNT.fetch_add(1, Ordering::Relaxed);
         // }
-        // thread::sleep(Duration::from_secs(1));
+        // thread::sleep(duration::from_secs(1));
         for (i, part) in self.parts.iter().enumerate() {
             unsafe {
                 result += WEIGHTS[i] * part;
             }
         }
-        // if result <= 0f64 {
-        //     panic!("uniformalized_f is less than 0. parts: {:?}", self.parts);
-        // }
+        if result <= 0f64 {
+            panic!("uniformalized_f is less than 0. parts: {:?}", self.parts);
+        }
 
         result
     }
 
+    //TODO: 用route改写
     fn satisfaction_to_restriction_8(&self) -> f64 {
         let mut result = 0f64;
         for i in 0..NUM_CITIES {
