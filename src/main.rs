@@ -82,9 +82,12 @@ impl Default for Parameter {
             generation_limit: 400,
             num_individuals_per_parents: 2,
             selection_ratio: 0.7,
+            // selection_ratio: 0.9,
             num_crossover_points: len / 6,
-            mutation_rate: 0.05 / (len as f64).ln(),
-            reinsertion_ratio: 0.7,
+            mutation_rate: 1. / (len as f64).ln(),
+            // mutation_rate: 0.3,
+            // reinsertion_ratio: 0.7,
+            reinsertion_ratio: 0.8,
         }
     }
 }

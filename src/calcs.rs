@@ -408,6 +408,8 @@ impl Calcs for Solution {
                 }
             }
         };
+        // let i = rand::thread_rng().gen_range::<usize, _>(0..NUM_CITIES);
+        // let range = (i..NUM_CITIES).chain(0..i);
         'loop0: for i in 0..NUM_CITIES {
             for j in 1..NUM_CITIES {
                 match u {
