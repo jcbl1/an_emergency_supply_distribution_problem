@@ -1,36 +1,29 @@
 use std::{
-    eprintln, fs,
-    io::{stdout, Write},
-    println,
-    process::{self, ExitCode},
+    eprintln, fs, println, process,
     sync::atomic::{AtomicIsize, AtomicUsize, Ordering},
 };
 
 use crate::calcs::*;
 use genevo::{
-    operator::prelude::RandomValueMutator,
-    population::{self, ValueEncodedGenomeBuilder},
-    prelude::*,
-    recombination::discrete::MultiPointCrossBreeder,
-    reinsertion::elitist::ElitistReinserter,
-    selection::truncation::MaximizeSelector,
-    types::fmt::Display,
+    operator::prelude::RandomValueMutator, population::ValueEncodedGenomeBuilder, prelude::*,
+    recombination::discrete::MultiPointCrossBreeder, reinsertion::elitist::ElitistReinserter,
+    selection::truncation::MaximizeSelector, types::fmt::Display,
 };
 
 use xlsxwriter::prelude::*;
 
-use clap::{Arg, ArgAction, ArgMatches, Command, Parser};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 
 mod calcs;
 mod example;
 #[cfg(test)]
 mod tests;
 
-const A_STEP: usize = 4000;
+const A_STEP: usize = 1000;
 const NUM_CITIES: usize = 9;
 const NUM_VEHICLES: usize = 4;
-const HIGHEST_FITNESS: usize = 1_000_000;
-const TOTAL_LEN: usize = 2 * NUM_VEHICLES * NUM_CITIES + 2 * NUM_VEHICLES * NUM_CITIES * NUM_CITIES;
+const HIGHEST_FITNESS: usize = 1_000_000_000;
+const TOTAL_LEN: usize = 2 * NUM_VEHICLES * NUM_CITIES + 24;
 const T: [[f64; NUM_CITIES]; NUM_CITIES] = [
     [0., 2.72, 0.70, 3.78, 1.27, 3.27, 1.13, 1.3, 1.93],
     [2.72, 0., 3.27, 5.3, 3.25, 4.93, 3.08, 1.32, 3.42],
@@ -50,15 +43,16 @@ const ALPHA: [f64; NUM_CITIES] = [1.; NUM_CITIES];
 const BETA: [f64; NUM_CITIES] = [1.; NUM_CITIES];
 // static MAX_F1: AtomicIsize = AtomicIsize::new((f64::NEG_INFINITY) as isize);
 // static MAX_F1: AtomicIsize = AtomicIsize::new(800isize);
-const MAX_F1: f64 = 54.2f64;
+// const MAX_F1: f64 = 54.2f64;
+const MAX_F1: f64 = 65f64;
 // static MIN_F1: AtomicIsize = AtomicIsize::new((f64::INFINITY) as isize);
 // static MIN_F1: AtomicIsize = AtomicIsize::new(400isize);
 const MIN_F1: f64 = 0f64;
 // static MAX_F2: AtomicIsize = AtomicIsize::new((f64::NEG_INFINITY) as isize);
-static MAX_F2: AtomicIsize = AtomicIsize::new(1_938_000isize);
+static MAX_F2: AtomicIsize = AtomicIsize::new(0isize);
 // static MIN_F2: AtomicIsize = AtomicIsize::new((f64::INFINITY) as isize);
-static MIN_F2: AtomicIsize = AtomicIsize::new(-1_490_000isize);
-static MAX_R8: AtomicUsize = AtomicUsize::new(1721424397249);
+static MIN_F2: AtomicIsize = AtomicIsize::new(-25239500isize);
+static MAX_R8: AtomicUsize = AtomicUsize::new(650703007);
 
 static UNTIL_NEXT_STAGE: AtomicUsize = AtomicUsize::new(0);
 
@@ -75,16 +69,19 @@ struct Parameter {
 
 impl Default for Parameter {
     fn default() -> Self {
-        let len = 2 * NUM_VEHICLES * NUM_CITIES + 2 * NUM_VEHICLES * NUM_CITIES * NUM_CITIES;
+        // let len = 2 * NUM_VEHICLES * NUM_CITIES + 2 * NUM_VEHICLES * NUM_CITIES * NUM_CITIES;
+        let len = 2 * NUM_VEHICLES * NUM_CITIES + 24;
         Parameter {
-            // population_size: 200,
             population_size: (100. * (len as f64).ln()) as usize,
             generation_limit: 400,
             num_individuals_per_parents: 2,
             selection_ratio: 0.7,
+            // selection_ratio: 0.8,
             num_crossover_points: len / 6,
-            mutation_rate: 0.05 / (len as f64).ln(),
+            mutation_rate: 0.5 / (len as f64).ln(),
+            // mutation_rate: 0.5,
             reinsertion_ratio: 0.7,
+            // reinsertion_ratio: 0.8,
         }
     }
 }
@@ -93,10 +90,13 @@ impl Default for Parameter {
 struct Solution {
     xiko: Vec<Vec<usize>>,
     xikr: Vec<Vec<usize>>,
-    yijko: Vec<Vec<Vec<bool>>>,
-    yijkr: Vec<Vec<Vec<bool>>>,
+    u8s: Vec<u8>,
+    // yijko: Vec<Vec<Vec<bool>>>,
+    // yijkr: Vec<Vec<Vec<bool>>>,
     parts: Vec<f64>,
     totr: (f64, f64),
+    routes_o: Vec<Vec<usize>>,
+    routes_r: Vec<Vec<usize>>,
 }
 
 impl Display for Solution {
@@ -128,10 +128,7 @@ impl Display for Solution {
             result.push_str(&format!("{:?}\n", distribution));
 
             result.push_str("  路径：\n");
-            result.push_str(&format!(
-                "{:?}\n",
-                self.get_route_of_k_in_stage_u(k, &Stage::O)
-            ));
+            result.push_str(&format!("{:?}\n", self.routes_o[k]));
         }
         result.push('\n');
         result.push_str("###########################################\n");
@@ -160,10 +157,7 @@ impl Display for Solution {
             result.push_str(&format!("{:?}\n", distribution));
 
             result.push_str("  路径：\n");
-            result.push_str(&format!(
-                "{:?}\n",
-                self.get_route_of_k_in_stage_u(k, &Stage::R)
-            ));
+            result.push_str(&format!("{:?}\n", self.routes_r[k]));
         }
 
         result
@@ -175,9 +169,9 @@ type Genome = Vec<u8>;
 fn decode_x(u: &u8) -> usize {
     *u as usize * A_STEP
 }
-fn decode_y(u: &u8) -> bool {
-    *u > 0b1111_1111 / 2
-}
+// fn decode_y(u: &u8) -> bool {
+//     *u > 0b1111_1111 / 2
+// }
 
 trait AsPhenotype {
     fn as_solution(&self) -> Solution;
@@ -187,8 +181,8 @@ impl AsPhenotype for Genome {
     fn as_solution(&self) -> Solution {
         let mut xiko: Vec<Vec<usize>> = Vec::new();
         let mut xikr: Vec<Vec<usize>> = Vec::new();
-        let mut yijko: Vec<Vec<Vec<bool>>> = Vec::new();
-        let mut yijkr: Vec<Vec<Vec<bool>>> = Vec::new();
+        // let mut yijko: Vec<Vec<Vec<bool>>> = Vec::new();
+        // let mut yijkr: Vec<Vec<Vec<bool>>> = Vec::new();
         for i in 0..NUM_VEHICLES {
             xiko.push(Vec::new());
             for j in 0..NUM_CITIES {
@@ -204,45 +198,61 @@ impl AsPhenotype for Genome {
             }
         }
 
-        for k in 0..NUM_VEHICLES {
-            yijko.push(Vec::new());
-            for i in 0..NUM_CITIES {
-                yijko[k].push(Vec::new());
-                for j in 0..NUM_CITIES {
-                    yijko[k][i].push(decode_y(
-                        &self[2 * NUM_VEHICLES * NUM_CITIES
-                            + k * NUM_CITIES * NUM_CITIES
-                            + i * NUM_CITIES
-                            + j],
-                    ));
-                }
-            }
-        }
-        for k in 0..NUM_VEHICLES {
-            yijkr.push(Vec::new());
-            for i in 0..NUM_CITIES {
-                yijkr[k].push(Vec::new());
-                for j in 0..NUM_CITIES {
-                    yijkr[k][i].push(decode_y(
-                        &self[2 * NUM_VEHICLES * NUM_CITIES
-                            + NUM_VEHICLES * NUM_CITIES * NUM_CITIES
-                            + k * NUM_CITIES * NUM_CITIES
-                            + i * NUM_CITIES
-                            + j],
-                    ));
-                }
-            }
-        }
+        let start = 2 * NUM_VEHICLES * NUM_CITIES;
+        let u8s = Vec::from(&self[start..(start + 24)]);
+        // let routes=takes_24_u8s_and_returns_8_routes(u8s.clone()).unwrap();
+        // let routes_o=Vec::from(&routes[0..4]);
+        // let routes_r=Vec::from(&routes[4..]);
+        // assert_eq!(routes_o.len(),4);
+        // assert_eq!(routes_r.len(),4);
+        // drop(routes);
+
+        // for k in 0..NUM_VEHICLES {
+        //     yijko.push(Vec::new());
+        //     for i in 0..NUM_CITIES {
+        //         yijko[k].push(Vec::new());
+        //         for j in 0..NUM_CITIES {
+        //             yijko[k][i].push(decode_y(
+        //                 &self[2 * NUM_VEHICLES * NUM_CITIES
+        //                     + k * NUM_CITIES * NUM_CITIES
+        //                     + i * NUM_CITIES
+        //                     + j],
+        //             ));
+        //         }
+        //     }
+        // }
+        // for k in 0..NUM_VEHICLES {
+        //     yijkr.push(Vec::new());
+        //     for i in 0..NUM_CITIES {
+        //         yijkr[k].push(Vec::new());
+        //         for j in 0..NUM_CITIES {
+        //             yijkr[k][i].push(decode_y(
+        //                 &self[2 * NUM_VEHICLES * NUM_CITIES
+        //                     + NUM_VEHICLES * NUM_CITIES * NUM_CITIES
+        //                     + k * NUM_CITIES * NUM_CITIES
+        //                     + i * NUM_CITIES
+        //                     + j],
+        //             ));
+        //         }
+        //     }
+        // }
 
         let mut solution = Solution {
             xiko,
             xikr,
-            yijko,
-            yijkr,
-            parts: vec![0., 0., 0., 0., 0., 0.],
+            u8s,
+            // yijko,
+            // yijkr,
+            parts: vec![0., 0., 0., 0.],
             totr: (0., 0.),
+            // routes_o: vec![Vec::new(), Vec::new(), Vec::new(), Vec::new()],
+            // routes_r: vec![Vec::new(), Vec::new(), Vec::new(), Vec::new()],
+            routes_o: Vec::new(),
+            routes_r: Vec::new(),
         };
         solution.uniformalized_f();
+        // solution.update_routes();
+        // solution.update_totr();
         solution
     }
 }
@@ -322,7 +332,7 @@ fn parse_matches() -> ArgMatches {
                 .short('w')
                 .long("weights")
                 .help("设置各部分权重")
-                .default_value("0.16,0.16,0.16,0.16,0.16,0.16")
+                .default_value("1,1,1,1")
                 .action(ArgAction::Set),
         )
         .get_matches()
@@ -334,11 +344,11 @@ fn main() {
     if debug_mode {
         dbg!("Processing in debug mode.");
     }
+    //权值/分目标的个数
     let mut len = 0;
     if let Some(weights) = matches.get_one::<String>("weights") {
-        unsafe {
-            len = WEIGHTS.len();
-        }
+        //权值个数由内部WEIGHTS的长度决定
+        len = WEIGHTS.len();
         let mut weights: Vec<_> = weights
             .split(',')
             .map(|w| w.parse::<f64>().expect("Error parsing weights"))
@@ -347,30 +357,31 @@ fn main() {
             eprintln!("Error: 权值个数不为{}", len);
             process::exit(1);
         }
+        //计算真正使用到的权值，即和为1的权值并存储在WEIGHTS中
         let sum = weights.iter().sum::<f64>();
         for i in 0..len {
             weights[i] = weights[i] / sum;
         }
-        unsafe {
-            for i in 0..len {
-                WEIGHTS[i] = weights[i];
-            }
+        for i in 0..len {
+            WEIGHTS[i].store((weights[i] * 10000f64) as usize, Ordering::Relaxed);
         }
         if debug_mode {
-            unsafe {
-                dbg!(&WEIGHTS);
-            }
+            dbg!(&WEIGHTS);
         }
     }
+    // 设置存储路径
     let output = match matches.get_one::<String>("output") {
         Some(output) => output,
         None => "./output",
     };
+    //设置文件名
     let uuid_ = uuid::Uuid::new_v4();
+    //创建文件夹
     fs::create_dir(output).unwrap_or_else(|e| match e.kind() {
         std::io::ErrorKind::AlreadyExists => (),
         other => panic!("{other}"),
     });
+    //
     let workbook =
         Workbook::new(&format!("{}/{}.xlsx", output, uuid_)).expect("Error creating file");
     println!("结果将会存放在{}/{}.xlsx.", output, uuid_);
@@ -380,6 +391,7 @@ fn main() {
         .set_bold()
         .set_align(FormatAlignment::Center)
         .set_vertical_align(FormatVerticalAlignment::VerticalCenter);
+    //存放各代适应度信息的表
     let mut fitness_sheet = workbook
         .add_worksheet(Some("Fitness"))
         .expect("Error creating sheet");
@@ -445,6 +457,7 @@ fn main() {
                 .expect("Error write_number");
         }
     };
+    // 存储最终结果的表
     let mut final_result_sheet = workbook
         .add_worksheet(Some("Final Results"))
         .expect("Error creating sheet");
@@ -492,6 +505,118 @@ fn main() {
         }
     }
 
+    final_result_sheet
+        .write_string(21, 3, "t_o", Some(&format_label))
+        .expect("Error write_string");
+    final_result_sheet
+        .write_string(21, 5, "t_o", Some(&format_label))
+        .expect("Error write_string");
+    final_result_sheet
+        .write_string(22, 2, "受灾点", Some(&format_label))
+        .expect("Error write_string");
+    for i in 1..=NUM_CITIES {
+        final_result_sheet
+            .write_number(22, (i + 2) as u16, i as f64, None)
+            .expect("Error write_number");
+    }
+    final_result_sheet
+        .write_string(23, 2, "受灾人数", Some(&format_label))
+        .expect("Error write_string");
+    for i in 0..NUM_CITIES {
+        final_result_sheet
+            .write_number(23, (i + 3) as u16, DEMANDS[i] as f64, None)
+            .expect("Error write_number");
+    }
+    final_result_sheet
+        .write_string(25, 2, "需求o", Some(&format_label))
+        .expect("Error write_string");
+    for i in 0..NUM_CITIES {
+        final_result_sheet
+            .write_formula(25, (i + 3) as u16, "=D24+D24*POWER($E$22,1.08)/1.66", None)
+            .expect("Error write_formula");
+    }
+    final_result_sheet
+        .write_string(26, 2, "需求r", Some(&format_label))
+        .expect("Error write_string");
+    for i in 0..NUM_CITIES {
+        final_result_sheet
+            .write_formula(26, (i + 3) as u16, "=D24*POWER($G$22,1.08)/1.66", None)
+            .expect("Error write_formula");
+    }
+    final_result_sheet
+        .write_string(27, 2, "总需求", Some(&format_label))
+        .expect("Error write_string");
+    for i in 0..NUM_CITIES {
+        final_result_sheet
+            .write_formula(27, (i + 3) as u16, "=D26+D27", None)
+            .expect("Error write_formula");
+    }
+    final_result_sheet
+        .write_string(28, 2, "供给o", Some(&format_label))
+        .unwrap();
+    final_result_sheet
+        .write_string(29, 2, "供给r", Some(&format_label))
+        .unwrap();
+    final_result_sheet
+        .write_string(30, 2, "总供给", Some(&format_label))
+        .expect("Error write_string");
+    final_result_sheet
+        .write_formula(30, 3, "=SUM(D29:D30)", None)
+        .unwrap();
+    final_result_sheet
+        .write_string(31, 2, "差", Some(&format_label))
+        .expect("Error write_string");
+    for i in 0..NUM_CITIES {
+        final_result_sheet
+            .write_formula(31, (i + 3) as u16, "=ABS(D28-D31)", None)
+            .expect("Error write_formula");
+    }
+    final_result_sheet
+        .write_string(30, 12, "和", Some(&format_label))
+        .expect("Error write_string");
+    final_result_sheet
+        .write_formula(31, 12, "=SUM(D32:L32)", None)
+        .expect("Error write_formula");
+
+    final_result_sheet
+        .write_string(32, 2, "U_i_o", Some(&format_label))
+        .unwrap();
+    for i in 0..NUM_CITIES {
+        final_result_sheet.write_formula(32, (i+3)as u16, "=D29-SUM(MAX($D$29-D29,0),MAX($E$29-D29,0),MAX($F$29-D29,0),MAX($G$29-D29,0),MAX($H$29-D29,0),MAX($I$29-D29,0),MAX($J$29-D29,0),MAX($K$29-D29,0),MAX($L$29-D29,0))/8-SUM(MAX(D29-$D$29,0),MAX(D29-$E$29,0),MAX(D29-$F$29,0),MAX(D29-$G$29,0),MAX(D29-$H$29,0),MAX(D29-$I$29,0),MAX(D29-$J$29,0),MAX(D29-$K$29,0),MAX(D29-$L$29,0))/8", None).unwrap();
+    }
+    final_result_sheet
+        .write_formula(32, 12, "=SUM(D33:L33)", None)
+        .unwrap();
+    final_result_sheet
+        .write_string(33, 2, "U_i_r", Some(&format_label))
+        .unwrap();
+    for i in 0..NUM_CITIES {
+        final_result_sheet.write_formula(33, (i+3)as u16, "=D30-SUM(MAX($D$30-D30,0),MAX($E$30-D30,0),MAX($F$30-D30,0),MAX($G$30-D30,0),MAX($H$30-D30,0),MAX($I$30-D30,0),MAX($J$30-D30,0),MAX($K$30-D30,0),MAX($L$30-D30,0))/8-SUM(MAX(D30-$D$30,0),MAX(D30-$E$30,0),MAX(D30-$F$30,0),MAX(D30-$G$30,0),MAX(D30-$H$30,0),MAX(D30-$I$30,0),MAX(D30-$J$30,0),MAX(D30-$K$30,0),MAX(D30-$L$30,0))/8", None).unwrap();
+    }
+    final_result_sheet
+        .write_formula(33, 12, "=SUM(D34:L34)", None)
+        .unwrap();
+
+    final_result_sheet
+        .write_string(35, 11, "U和之相反数", Some(&format_label))
+        .unwrap();
+    final_result_sheet
+        .write_formula(35, 12, "=-SUM(M33:M34)", None)
+        .unwrap();
+
+    final_result_sheet
+        .write_string(36, 11, "max_f2", Some(&format_label))
+        .unwrap();
+    final_result_sheet
+        .write_string(37, 11, "min_f2", Some(&format_label))
+        .unwrap();
+    final_result_sheet
+        .write_string(38, 11, "f2", Some(&format_label))
+        .unwrap();
+    final_result_sheet
+        .write_formula(38, 12, "=(M36-$M$38)/($M$37-$M$38)", None)
+        .unwrap();
+
     let write_final =
         |final_result_sheet: &mut Worksheet, stop_reason: &str, solution: &Solution| {
             final_result_sheet
@@ -516,8 +641,8 @@ fn main() {
                         )
                         .expect("Error write_number");
                 }
-                let route_o = solution.get_route_of_k_in_stage_u(k, &Stage::O);
-                let route_r = solution.get_route_of_k_in_stage_u(k, &Stage::R);
+                let route_o = solution.routes_o[k].clone();
+                let route_r = solution.routes_r[k].clone();
                 final_result_sheet
                     .write_string((3 + 2 * k) as u32, 3, &format!("{:?}", route_o), None)
                     .expect("Error write_string");
@@ -525,8 +650,34 @@ fn main() {
                     .write_string((9 + 3 + 2 * k) as u32, 3, &format!("{:?}", route_r), None)
                     .expect("Error write_string");
             }
+
+            final_result_sheet
+                .write_number(21, 4, solution.totr.0, None)
+                .expect("Error write_number");
+            final_result_sheet
+                .write_number(21, 6, solution.totr.1, None)
+                .unwrap();
+            for i in 0..NUM_CITIES {
+                let xio = solution.delivered_to_i_in_stage_u(i, &Stage::O);
+                let xir = solution.delivered_to_i_in_stage_u(i, &Stage::R);
+                final_result_sheet
+                    .write_number(28, (i + 3) as u16, xio, None)
+                    .unwrap();
+                final_result_sheet
+                    .write_number(29, (i + 3) as u16, xir, None)
+                    .unwrap();
+            }
+            let max_f2 = MAX_F2.load(Ordering::Relaxed) as f64;
+            let min_f2 = MIN_F2.load(Ordering::Relaxed) as f64;
+            final_result_sheet
+                .write_number(36, 12, max_f2, None)
+                .unwrap();
+            final_result_sheet
+                .write_number(37, 12, min_f2, None)
+                .unwrap();
         };
 
+    //存储朴素结果以供调试
     let mut plain_result_sheet = workbook
         .add_worksheet(Some("Plain Result"))
         .expect("Error creating sheet");
@@ -571,28 +722,29 @@ fn main() {
                     .expect("Error write_number");
             }
         }
-        for k in 0..NUM_VEHICLES {
-            for i in 0..NUM_CITIES {
-                for j in 0..NUM_CITIES {
-                    plain_result_sheet
-                        .write_boolean(
-                            (11 + k * 10 + i) as u32,
-                            j as u16,
-                            solution.yijko[k][i][j],
-                            None,
-                        )
-                        .expect("Error write_boolean");
-                    plain_result_sheet
-                        .write_boolean(
-                            (51 + k * 10 + i) as u32,
-                            j as u16,
-                            solution.yijkr[k][i][j],
-                            None,
-                        )
-                        .expect("Error write_boolean");
-                }
-            }
-        }
+        //TODO:存储u8s
+        // for k in 0..NUM_VEHICLES {
+        //     for i in 0..NUM_CITIES {
+        //         for j in 0..NUM_CITIES {
+        //             plain_result_sheet
+        //                 .write_boolean(
+        //                     (11 + k * 10 + i) as u32,
+        //                     j as u16,
+        //                     solution.yijko[k][i][j],
+        //                     None,
+        //                 )
+        //                 .expect("Error write_boolean");
+        //             plain_result_sheet
+        //                 .write_boolean(
+        //                     (51 + k * 10 + i) as u32,
+        //                     j as u16,
+        //                     solution.yijkr[k][i][j],
+        //                     None,
+        //                 )
+        //                 .expect("Error write_boolean");
+        //         }
+        //     }
+        // }
     };
 
     let write_stage = |workbook: &Workbook, gen: u64, solution: &Solution| {
@@ -633,7 +785,9 @@ fn main() {
         write_plain_results(&mut sheet, &solution);
     };
 
+    //默认参数
     let mut params = Parameter::default();
+    //更新代数
     if let Some(generation_limit) = matches.get_one::<String>("generation_limit") {
         let generation_limit = generation_limit
             .parse::<u64>()
@@ -643,6 +797,7 @@ fn main() {
             ..params
         };
     }
+    //更新种群规模
     if let Some(population_size) = matches.get_one::<String>("population_size") {
         let population_size = population_size
             .parse::<usize>()
@@ -746,6 +901,15 @@ fn main() {
                 //     best_solution.solution.genome.as_solution().fmt()
                 // );
 
+                write_gen(
+                    &mut fitness_sheet,
+                    step.iteration,
+                    best_solution.solution.fitness,
+                    *step.result.evaluated_population.average_fitness(),
+                    *step.result.evaluated_population.lowest_fitness(),
+                    &best_solution.solution.genome.as_solution().parts,
+                    &[],
+                );
                 write_final(
                     &mut final_result_sheet,
                     &stop_reason,
@@ -770,6 +934,7 @@ fn main() {
     }
 
     // Post work
+    // 写入文件
     if let Err(e) = workbook.close() {
         eprintln!("{e}");
         process::exit(1);
