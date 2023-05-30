@@ -2,90 +2,90 @@ use std::assert_eq;
 
 use super::*;
 
-#[test]
-fn test_gen_route() {
-    let y: [[[bool; 9]; 9]; 4] = [
-        [
-            [false, false, true, false, false, false, false, false, false],
-            [false; 9],
-            [false; 9],
-            [false, true, false, true, false, false, false, false, false],
-            [false, true, false, false, false, true, true, false, false],
-            [false, false, false, false, false, true, false, true, false],
-            [false, false, false, false, true, false, false, false, true],
-            [false, false, false, false, true, false, false, true, false],
-            [false, false, false, true, false, false, false, false, false],
-        ],
-        [
-            [false, false, false, false, false, false, false, true, false],
-            [false, false, false, false, false, false, false, false, true],
-            [false, false, false, false, true, false, false, false, false],
-            [false, false, false, false, false, true, false, false, false],
-            [true, false, false, false, false, false, false, false, false],
-            [
-                false, false, false, false, false, false, false, false, false,
-            ],
-            [
-                false, false, false, false, false, false, false, false, false,
-            ],
-            [false, false, true, false, false, false, false, false, false],
-            [true, false, false, false, false, false, false, false, false],
-        ],
-        [
-            [
-                false, false, false, false, false, false, false, false, false,
-            ],
-            [
-                false, false, false, false, false, false, false, false, false,
-            ],
-            [false, false, false, true, false, false, true, true, false],
-            [true, true, true, false, false, true, false, false, false],
-            [
-                false, false, false, false, false, false, false, false, false,
-            ],
-            [
-                false, false, false, false, false, false, false, false, false,
-            ],
-            [false, false, true, false, false, true, false, true, false],
-            [false, true, false, false, false, false, true, true, false],
-            [false, false, false, true, false, false, false, false, false],
-        ],
-        [
-            [
-                false, false, false, false, false, false, false, false, false,
-            ],
-            [
-                false, false, false, false, false, false, false, false, false,
-            ],
-            [false, false, true, false, false, false, false, false, false],
-            [false, false, false, false, false, true, false, false, false],
-            [false, false, false, false, false, false, true, false, false],
-            [false, false, false, false, false, true, false, false, false],
-            [false, false, false, false, true, false, false, false, false],
-            [
-                false, false, false, false, false, false, false, false, false,
-            ],
-            [false, true, false, false, false, false, false, false, true],
-        ],
-    ];
-    let mut solution = Solution::random_new();
-    for k in 0..NUM_VEHICLES {
-        for i in 0..NUM_CITIES {
-            for j in 0..NUM_CITIES {
-                solution.yijko[k][i][j] = y[k][i][j];
-            }
-        }
-    }
-    let target: Vec<Vec<usize>> = vec![vec![0, 2], vec![0, 7, 2, 4, 0], vec![2, 3, 0], vec![3, 5]];
-    for k in 0..NUM_VEHICLES {
-        let result = solution.get_route_of_k_in_stage_u(k, &Stage::O);
-        assert_eq!(result, target[k]);
-    }
-    for i in 0..NUM_CITIES {
-        println!("{:?}", solution.yijko[0][i]);
-    }
-    // println!("{:?}", result);
-}
+// #[test]
+// fn test_gen_route() {
+//     let y: [[[bool; 9]; 9]; 4] = [
+//         [
+//             [false, false, true, false, false, false, false, false, false],
+//             [false; 9],
+//             [false; 9],
+//             [false, true, false, true, false, false, false, false, false],
+//             [false, true, false, false, false, true, true, false, false],
+//             [false, false, false, false, false, true, false, true, false],
+//             [false, false, false, false, true, false, false, false, true],
+//             [false, false, false, false, true, false, false, true, false],
+//             [false, false, false, true, false, false, false, false, false],
+//         ],
+//         [
+//             [false, false, false, false, false, false, false, true, false],
+//             [false, false, false, false, false, false, false, false, true],
+//             [false, false, false, false, true, false, false, false, false],
+//             [false, false, false, false, false, true, false, false, false],
+//             [true, false, false, false, false, false, false, false, false],
+//             [
+//                 false, false, false, false, false, false, false, false, false,
+//             ],
+//             [
+//                 false, false, false, false, false, false, false, false, false,
+//             ],
+//             [false, false, true, false, false, false, false, false, false],
+//             [true, false, false, false, false, false, false, false, false],
+//         ],
+//         [
+//             [
+//                 false, false, false, false, false, false, false, false, false,
+//             ],
+//             [
+//                 false, false, false, false, false, false, false, false, false,
+//             ],
+//             [false, false, false, true, false, false, true, true, false],
+//             [true, true, true, false, false, true, false, false, false],
+//             [
+//                 false, false, false, false, false, false, false, false, false,
+//             ],
+//             [
+//                 false, false, false, false, false, false, false, false, false,
+//             ],
+//             [false, false, true, false, false, true, false, true, false],
+//             [false, true, false, false, false, false, true, true, false],
+//             [false, false, false, true, false, false, false, false, false],
+//         ],
+//         [
+//             [
+//                 false, false, false, false, false, false, false, false, false,
+//             ],
+//             [
+//                 false, false, false, false, false, false, false, false, false,
+//             ],
+//             [false, false, true, false, false, false, false, false, false],
+//             [false, false, false, false, false, true, false, false, false],
+//             [false, false, false, false, false, false, true, false, false],
+//             [false, false, false, false, false, true, false, false, false],
+//             [false, false, false, false, true, false, false, false, false],
+//             [
+//                 false, false, false, false, false, false, false, false, false,
+//             ],
+//             [false, true, false, false, false, false, false, false, true],
+//         ],
+//     ];
+//     let mut solution = Solution::random_new();
+//     for k in 0..NUM_VEHICLES {
+//         for i in 0..NUM_CITIES {
+//             for j in 0..NUM_CITIES {
+//                 solution.yijko[k][i][j] = y[k][i][j];
+//             }
+//         }
+//     }
+//     let target: Vec<Vec<usize>> = vec![vec![0, 2], vec![0, 7, 2, 4, 0], vec![2, 3, 0], vec![3, 5]];
+//     for k in 0..NUM_VEHICLES {
+//         let result = solution.get_route_of_k_in_stage_u(k, &Stage::O);
+//         assert_eq!(result, target[k]);
+//     }
+//     for i in 0..NUM_CITIES {
+//         println!("{:?}", solution.yijko[0][i]);
+//     }
+//     // println!("{:?}", result);
+// }
 
 // #[test]
 // fn test_time_cost() {
@@ -103,45 +103,33 @@ fn test_gen_route() {
 
 #[test]
 fn test_restriction_11() {
-    let y: [[[bool; 9]; 9]; 4] = [[
-        [false, true, false, false, false, false, false, false, false],
-        [false, false, true, false, false, false, false, false, false],
-        [false, false, false, true, false, false, false, false, false],
-        [false, false, false, false, true, false, false, false, false],
-        [false, false, false, false, false, true, false, false, false],
-        [false, false, false, false, false, false, true, false, false],
-        [false, false, false, false, false, false, false, true, false],
-        [false, false, false, false, false, false, false, false, true],
-        [true, false, false, false, false, false, false, false, false],
-    ]; 4];
-    // let y = [[[true; 9]; 9]; 4];
     let mut solution = Solution::random_new();
-    for k in 0..NUM_VEHICLES {
-        for i in 0..NUM_CITIES {
-            for j in 0..NUM_CITIES {
-                solution.yijko[k][i][j] = y[k][i][j];
-                solution.yijkr[k][i][j] = y[k][i][j];
-            }
-        }
-    }
-    let r11 = solution.satisfaction_to_restriction_11();
-    println!("{}", r11);
+    solution.routes_o[0] = vec![0, 1, 0];
+    solution.routes_o[1] = vec![2, 3, 2];
+    solution.routes_o[2] = vec![4, 5, 4];
+    solution.routes_o[3] = vec![6, 7, 6];
+    solution.routes_r[0] = vec![0, 1, 0];
+    solution.routes_r[1] = vec![2, 3, 2];
+    solution.routes_r[2] = vec![4, 5, 4];
+    solution.routes_r[3] = vec![6, 5, 6];
+    let result = solution.satisfaction_to_restriction_11();
+    println!("result: {}", result);
 }
 
-#[test]
-fn test_f1() {
-    let mut solution = Solution::random_new();
-    for k in 0..NUM_VEHICLES {
-        for i in 0..NUM_CITIES {
-            for j in 0..NUM_CITIES {
-                solution.yijko[k][i][j] = false;
-                solution.yijkr[k][i][j] = false;
-            }
-        }
-    }
-    let result = solution.f1();
-    println!("{}", result);
-}
+// #[test]
+// fn test_f1() {
+//     let mut solution = Solution::random_new();
+//     for k in 0..NUM_VEHICLES {
+//         for i in 0..NUM_CITIES {
+//             for j in 0..NUM_CITIES {
+//                 solution.yijko[k][i][j] = false;
+//                 solution.yijkr[k][i][j] = false;
+//             }
+//         }
+//     }
+//     let result = solution.f1();
+//     println!("{}", result);
+// }
 
 #[test]
 fn test_f2() {
@@ -192,10 +180,10 @@ fn test_utility() {
 #[test]
 fn find_max_min_of_f2() {
     let (mut max_f2, mut min_f2) = (0f64, 0f64);
-    let iter_limit = 1000;
+    let iter_limit = 10000;
     for _ in 0..iter_limit {
         let solution = Solution::random_new();
-        for i in 0..NUM_CITIES {
+        for _ in 0..NUM_CITIES {
             let result = solution.f2();
             if result > max_f2 {
                 max_f2 = result;
@@ -211,9 +199,11 @@ fn find_max_min_of_f2() {
 #[test]
 fn test_r8() {
     let (mut max, mut min) = (0f64, 0f64);
-    let iter_limit = 1000;
+    let iter_limit = 100000;
     for _ in 0..iter_limit {
-        let solution = Solution::random_new();
+        let mut solution = Solution::random_new();
+        solution.update_routes();
+        solution.update_totr();
         let result = solution.satisfaction_to_restriction_8();
         if result > max {
             max = result;
@@ -238,10 +228,38 @@ fn test_r8() {
 
 #[test]
 fn test_demand() {
-    let solution = Solution::random_new();
+    let mut solution = Solution::random_new();
+    solution.routes_o.push(vec![0, 1, 2]);
+    solution.routes_o.push(vec![0, 1, 2]);
+    solution.routes_o.push(vec![0, 1, 2]);
+    solution.routes_o.push(vec![0, 1, 2]);
+    solution.routes_r.push(vec![0, 1, 2]);
+    solution.routes_r.push(vec![0, 1, 2]);
+    solution.routes_r.push(vec![0, 1, 2]);
+    solution.routes_r.push(vec![0, 1, 2]);
+    solution.update_totr();
     let i = 0;
     let u = Stage::O;
     let result = solution.demand_of_i_in_stage_u(i, &u);
     println!("demand of {} in stage {:?}: {}", i, u, result);
     println!("T_O: {}, T_R: {}", solution.totr.0, solution.totr.1);
+}
+
+#[test]
+fn test_update_routes() {
+    let mut solution = Solution::random_new();
+    dbg!(&solution.u8s);
+    dbg!(&solution.routes_o, &solution.routes_r);
+    dbg!(&solution.totr);
+    solution.update_routes();
+    dbg!(&solution.routes_o, &solution.routes_r);
+    dbg!(&solution.totr);
+    solution.update_totr();
+    dbg!(&solution.totr);
+}
+
+#[test]
+fn test_diff() {
+    let result = diff(5., 108.);
+    println!("result: {}", result);
 }
